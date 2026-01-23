@@ -28,6 +28,7 @@ docker run -d \
   --name videox \
   -p 3100:3100 \
   -v ./videox-data:/app/backend/data \
+  -v /你的本地视频目录:/media \
   ghcr.io/txwebroot/videox:latest
 ```
 
@@ -41,7 +42,8 @@ services:
     ports:
       - "3100:3100"
     volumes:
-      - ./data:/app/backend/data
+      - ./data:/app/backend/data    # 1. 数据库和配置文件
+      - /你的本地视频目录:/media    # 2. 媒体资源目录（新加）
     restart: unless-stopped
 ```
 
