@@ -55,7 +55,7 @@ services:
 ## 🛠️ 技术架构
 
 - **前端**：React 18 + Vite + TailwindCSS + ArtPlayer
-- **后端**：Node.js (Express) + JavaScript-Obfuscator 加固
+- **后端**：Node.js (Express) + JavaScript
 - **数据库**：SQLite 3 (数据持久化在 `/app/backend/data` 目录下)
 
 
