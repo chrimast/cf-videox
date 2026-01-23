@@ -2,12 +2,9 @@
 
 VideoX 是一款专为聚合视频源、电视直播及网盘媒体打造的独立应用。它集成了高性能的播放引擎、智能化的内容同步以及专业的安全加固机制。
 
-<p>
-  <img src="https://github.com/user-attachments/assets/a05616a3-98ce-45f1-9d4d-6f079534f499" width="50%" />
-  
-  <img src="https://github.com/user-attachments/assets/3c02d3be-7ac8-40db-addc-3d42d1862c1c" width="50%" />
-</p>
+<img width="1915" height="877" alt="2" src="https://github.com/user-attachments/assets/6a6385bf-670c-4553-b819-86c72c3db1a0" />
 
+<img width="1904" height="878" alt="1" src="https://github.com/user-attachments/assets/82da4583-0b0c-4070-abf8-03843e9bea80" />
 
 ## 🚀 核心特性
 
