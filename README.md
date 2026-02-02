@@ -2,10 +2,6 @@
 
 VideoX 是一款专为聚合视频源、电视直播及网盘媒体打造的独立应用。它集成了高性能的播放引擎、智能化的内容同步以及专业的安全加固机制。
 
-<img width="1915" height="877" alt="2" src="https://github.com/user-attachments/assets/6a6385bf-670c-4553-b819-86c72c3db1a0" />
-
-<img width="1904" height="878" alt="1" src="https://github.com/user-attachments/assets/82da4583-0b0c-4070-abf8-03843e9bea80" />
-
 ## 🚀 核心特性
 
 - **多源聚合**：支持视频站、电视直播 (IPTV)、全网搜片及云盘 (AList/WebDAV) 等多种资源类型。
@@ -42,8 +38,8 @@ services:
     ports:
       - "3100:3100"
     volumes:
-      - ./data:/app/backend/data    # 1. 数据库和配置文件
-      - /你的本地视频目录:/media    # 2. 媒体资源目录
+      - ./data:/app/backend/data  # 1. 数据库和配置文件
+      - /你的本地视频目录:/media    # 2. 媒体资源目录（新加）
     restart: unless-stopped
 ```
 
@@ -57,7 +53,7 @@ services:
 ## 🛠️ 技术架构
 
 - **前端**：React 18 + Vite + TailwindCSS + ArtPlayer
-- **后端**：Node.js (Express) + JavaScript
+- **后端**：Node.js (Express) + JavaScript-Obfuscator 加固
 - **数据库**：SQLite 3 (数据持久化在 `/app/backend/data` 目录下)
 
 

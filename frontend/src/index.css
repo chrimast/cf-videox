@@ -1,0 +1,129 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 全局样式 */
+* {
+    box-sizing: border-box;
+}
+
+/* Base styles are now inherited from /public/shared/plugin-standard.css via Auto-Injection */
+
+/* 磨砂玻璃材质 - 引入 CSS 变量控制 */
+.glass-effect {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background-color: var(--glass-bg, rgba(15, 23, 42, 0.7));
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+}
+
+/* 视频封面 */
+.video-cover {
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+}
+
+/* ======================= */
+/* 主题切换核心逻辑 */
+/* ======================= */
+
+:root {
+    /* 默认暗黑主题 */
+    --bg-primary: #0b0e14;
+    --bg-secondary: #1a1d24;
+    --bg-tertiary: #23272f;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --border-main: rgba(255, 255, 255, 0.05);
+    --glass-bg: rgba(7, 9, 14, 0.9);
+    --brand-blue: #3b82f6;
+}
+
+[data-theme="light"] {
+    --bg-primary: #f8fafc;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f1f5f9;
+    --text-primary: #0f172a;
+    --text-secondary: #334155;
+    --border-main: #e2e8f0;
+    --glass-bg: rgba(255, 255, 255, 0.8);
+}
+
+/* 强制选中态颜色锁定 - 绝不随主题变动 */
+.active-brand-item {
+    background-color: var(--brand-blue) !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4) !important;
+}
+
+/* 主题平滑过渡 */
+body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* 列表与卡片背景适配 */
+.bg-primary {
+    background-color: var(--bg-primary) !important;
+}
+
+.bg-secondary {
+    background-color: var(--bg-secondary) !important;
+}
+
+.text-primary {
+    color: var(--text-primary) !important;
+}
+
+.text-secondary {
+    color: var(--text-secondary);
+}
+
+/* 强制边框颜色工具类 */
+.border-border-color {
+    border-color: var(--border-main) !important;
+}
+
+/* 修复 CategoryNav 悬停效果 */
+[data-theme="light"] .hover\:bg-secondary:hover {
+    background-color: #e2e8f0 !important;
+}
+
+/* 隐藏滚动条工具类 */
+.sidebar-scrollbar,
+.hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar,
+.hide-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+/* 全局自定义滚动条 - 适配暗黑/明亮模式 */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    border: 3px solid var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #4a5568;
+}
+
+/* 兼容 Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--bg-tertiary) var(--bg-primary);
+}
