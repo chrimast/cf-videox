@@ -21,7 +21,7 @@ export function GlobalSearchBar({
   onToggleSidebar, theme, onToggleTheme, isAdminPasswordEnabled,
 }: GlobalSearchBarProps) {
   const [keyword, setKeyword] = useState('');
-  const { isAuthenticated, login, password } = useAuth();
+  const { isAuthenticated, login, logout, password } = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
   const [loginPassword, setLoginPassword] = useState('');
 
@@ -30,15 +30,15 @@ export function GlobalSearchBar({
     if (keyword.trim()) onSearch(keyword.trim(), null);
   };
 
+  const handleUser = async () => {
+    if (isAuthenticated) { logout(); return; }
+    if (!isAdminPasswordEnabled) { await login(''); return; }
+    setLoginOpen(true);
+  };
+
 
   const confirmLogin = async () => {
     if (await login(loginPassword)) { setLoginOpen(false); setLoginPassword(''); onNavigate('admin'); }
-  };
-
-  const openAdmin = async () => {
-    if (isAuthenticated) { onNavigate('admin'); return; }
-    if (!isAdminPasswordEnabled) { if (await login('')) onNavigate('admin'); return; }
-    setLoginOpen(true);
   };
 
   return (
@@ -51,9 +51,8 @@ export function GlobalSearchBar({
             <input aria-label="搜索视频" value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="搜索全部视频..." className="min-w-0 flex-1 rounded-lg border border-border-color bg-transparent px-3 py-2 text-sm" />
             <button aria-label="搜索" type="submit" className="rounded-lg bg-blue-600 px-3 text-white"><i className="fas fa-search" /></button>
           </form>
-          <button aria-label="打开管理中心" onClick={openAdmin} className="p-2 rounded-lg"><i className="fas fa-cog" /></button>
           <button aria-label="切换主题" onClick={onToggleTheme} className="p-2 rounded-lg"><i className={`fas ${theme === 'dark' ? 'fa-sun' : 'fa-moon'}`} /></button>
-
+          <button aria-label={isAuthenticated ? '退出登录' : '用户登录'} onClick={handleUser} className={`p-2 rounded-lg ${isAuthenticated ? 'text-green-500' : ''}`}><i className="fas fa-user" /></button>
         </div>
         {loginOpen && <div className="absolute right-3 top-14 z-30 rounded-xl border border-border-color bg-primary p-3 shadow-xl">
           <input autoFocus type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder="管理密码" className="rounded border border-border-color bg-transparent px-2 py-1" onKeyDown={e => e.key === 'Enter' && confirmLogin()} />
