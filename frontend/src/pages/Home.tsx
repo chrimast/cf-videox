@@ -337,7 +337,7 @@ export function Home() {
                     </button>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-3 sm:gap-4 lg:gap-5">
-                    {data.hot?.slice(1, 9).map(video => (
+                    {data.hot?.slice(1, 17).map(video => (
                         <VideoCard
                             key={`hot-${video.source_id}-${video.vod_id}`}
                             video={video}
@@ -397,7 +397,7 @@ export function Home() {
                         {/* 视频网格 */}
                         {videos.length > 0 ? (
                             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-3 sm:gap-4 lg:gap-5 min-h-[200px]">
-                                {videos.slice(section.id === 'movie' ? 1 : 0, section.id === 'movie' ? 17 : 16).map((video: Video) => (
+                                {videos.slice(section.id === 'movie' ? 1 : 0, section.id === 'movie' ? 9 : 8).map((video: Video) => (
                                     <VideoCard
                                         key={`${section.id}-${currentTab}-${video.source_id}-${video.vod_id}`}
                                         video={video}
