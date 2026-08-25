@@ -40,81 +40,56 @@ docker/                   Docker 在线源后端
 docker-compose.yml        Docker Compose 部署文件
 ```
 
-## 方法一：Cloudflare Worker 部署
+## 方法一：通过 Cloudflare 官网部署 Worker
 
-### 前置条件
+以下流程不需要在本地安装 Node.js、Wrangler，也不需要执行命令。适合直接在 Cloudflare 控制台完成部署。
 
-- Cloudflare 账户；
-- 已安装 Node.js 22 或更高版本；
-- 已安装并登录 Wrangler：
+### 1. 登录 Cloudflare 控制台
 
-```bash
-npm install -g wrangler
-wrangler login
-```
+打开 [Cloudflare Dashboard](https://dash.cloudflare.com/)，选择账户后进入 **Workers & Pages**。
 
-### 1. 获取代码
+### 2. 创建 D1 数据库
 
-```bash
-git clone https://github.com/chrimast/cf-videox.git
-cd cf-videox
-```
+1. 在左侧进入 **Storage & databases → D1**；
+2. 点击 **Create database**；
+3. 数据库名称填写 `videox`；
+4. 创建完成后记下数据库名称，后续绑定 Worker 时选择该数据库。
 
-### 2. 安装前端依赖并构建
+### 3. 创建 Worker
 
-```bash
-cd frontend
-npm install
-npm run build
-cd ..
-```
+1. 进入 **Workers & Pages → Create application → Create Worker**；
+2. 创建一个 Worker，名称建议使用 `videox`；
+3. 创建后进入该 Worker 的 **Settings → Bindings**；
+4. 添加 **D1 database binding**：变量名填写 `DB`，数据库选择前面创建的 `videox`。
 
-### 3. 创建 D1 数据库
+### 4. 配置 Static Assets
 
-```bash
-npx wrangler d1 create videox
-```
+当前仓库的 Worker 代码和前端构建产物需要一起部署。Cloudflare 控制台的在线编辑器不适合直接完成本项目的多文件构建，因此推荐在 **Workers & Pages → Create application → Import a repository** 中连接 GitHub 仓库 `chrimast/cf-videox`，再选择 Worker 部署方式。
 
-命令会输出 `database_id`。编辑 `worker/wrangler.toml`，将占位的：
+在部署设置中填写：
 
-```toml
-database_id = "00000000-0000-0000-0000-000000000000"
-```
+- **Root directory**：仓库根目录；
+- **Build command**：`npm --prefix frontend install && npm --prefix frontend run build`；
+- **Build output directory**：`frontend/dist`；
+- **Deploy command**：由 Cloudflare 的 Worker 部署流程执行；
+- **D1 binding**：变量名必须为 `DB`。
 
-替换为真实的 D1 `database_id`。
+如果当前 Cloudflare 账户界面没有提供 Worker 的 GitHub 构建入口，请先在 **Workers & Pages → Create application → Import a repository** 中创建连接，再在项目的 **Settings → Builds & deployments** 中填写上述构建配置。
 
-### 4. 执行 D1 迁移
+### 5. 执行 D1 迁移
 
-首次部署：
+在 Worker 的 **D1 数据库 → Console** 中打开数据库控制台，将仓库 `worker/migrations/0001_initial.sql` 的内容复制进去并执行。执行成功后，数据库表会完成初始化。
 
-```bash
-npx wrangler d1 migrations apply videox --remote --config worker/wrangler.toml
-```
+### 6. 发布和验证
 
-本地测试：
+1. 在 Cloudflare 项目中点击 **Save and deploy**；
+2. 打开 Cloudflare 分配的 `workers.dev` 地址；
+3. 访问 `/api/health`，返回 `status: healthy` 即表示 Worker 已启动；
+4. 进入后台添加 CMS 视频源，并在后台配置 TMDB API Key（如需使用 TMDB 正在热映）。
 
-```bash
-npx wrangler d1 migrations apply videox --local --config worker/wrangler.toml
-```
+### 7. 后续更新
 
-### 5. 部署 Worker
-
-```bash
-npx wrangler deploy --config worker/wrangler.toml
-```
-
-部署成功后访问 Wrangler 输出的 `workers.dev` 地址。
-
-### 6. 后续更新
-
-```bash
-cd frontend
-npm install
-npm run build
-cd ..
-npx wrangler d1 migrations apply videox --remote --config worker/wrangler.toml
-npx wrangler deploy --config worker/wrangler.toml
-```
+推送到 GitHub `main` 分支后，在 Cloudflare 项目的 **Deployments** 页面点击 **Redeploy**，或启用自动部署。数据库迁移仍需在 D1 Console 中按新增 migration 文件手动执行。
 
 ### Cloudflare 部署说明
 
@@ -135,50 +110,60 @@ npx wrangler deploy --config worker/wrangler.toml
 - Docker Engine；
 - Docker Compose Plugin。
 
-### 1. 获取代码
+### 一键部署配置
 
-```bash
-git clone https://github.com/chrimast/cf-videox.git
-cd cf-videox
+将下面内容保存为 `docker-compose.yml`，然后执行 `docker compose up -d --build`：
+
+```yaml
+services:
+  videox:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: videox
+    ports:
+      - "3100:3100"
+    environment:
+      NODE_ENV: production
+      PORT: 3100
+      VIDEOX_DATA_DIR: /app/data
+    volumes:
+      - videox-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  videox-data:
 ```
 
-### 2. 构建并启动
+默认访问地址：`http://服务器IP:3100`。更新版本时重新获取项目文件后执行 `docker compose up -d --build`。不要删除 `videox-data` 数据卷，否则会丢失配置和数据。
 
-```bash
-docker compose up -d --build
+## GitHub 自动构建 Docker 镜像
+
+仓库已加入 GitHub Actions 工作流：`.github/workflows/docker-image.yml`。
+
+- 推送到 `main`：自动构建并推送 `ghcr.io/chrimast/cf-videox:latest`；
+- 推送形如 `v1.0.0` 的 Git tag：自动生成对应版本标签；
+- 同时生成 Git SHA 标签；
+- 使用 GitHub Actions 缓存，加快后续构建；
+- 使用内置的 `GITHUB_TOKEN`，不需要额外保存 Docker Hub 密码。
+
+### 在 GitHub 中启用和查看
+
+1. 打开仓库的 **Settings → Actions → General**；
+2. 确认允许 Actions 运行；
+3. 在 **Settings → Actions → General → Workflow permissions** 选择 **Read and write permissions**，或确保工作流的 `packages: write` 权限可用；
+4. 推送代码后进入仓库 **Actions** 页面查看构建结果；
+5. 构建成功后进入仓库右侧 **Packages** 查看 GHCR 镜像。
+
+### 使用 GHCR 镜像
+
+如果镜像可公开访问，可以把 Compose 中的 `build` 替换为：
+
+```yaml
+image: ghcr.io/chrimast/cf-videox:latest
 ```
 
-默认访问地址：
-
-```text
-http://服务器IP:3100
-```
-
-### 3. 查看状态和日志
-
-```bash
-docker compose ps
-docker compose logs -f videox
-```
-
-### 4. 更新版本
-
-```bash
-git pull
-docker compose up -d --build
-```
-
-### 5. 停止服务
-
-```bash
-docker compose stop
-```
-
-如需删除容器但保留数据卷：
-
-```bash
-docker compose down
-```
+私有镜像需要先在服务器执行 `docker login ghcr.io`，再启动 Compose。生产环境建议使用版本 tag，而不是始终使用 `latest`。
 
 ### Docker 数据持久化
 
