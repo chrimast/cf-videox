@@ -147,12 +147,23 @@ async function cmsCategories(request, env) {
 async function cmsVideos(request, env) {
   const url = new URL(request.url);
   const sourceId = url.searchParams.get('source_id');
-  const source = await cmsSource(env, sourceId);
-  if (!source) return json({ success: false, error: 'Source not found' }, 404);
-  const data = await cmsRequest(source, { ac: 'detail', t: url.searchParams.get('category_id') || undefined, pg: url.searchParams.get('page') || 1, wd: url.searchParams.get('keyword') || undefined });
-  const keyword = (url.searchParams.get('keyword') || '').toLowerCase();
-  const list = (data.list || []).map(normalizeVideo).filter(item => !keyword || item.vod_name.toLowerCase().includes(keyword));
-  return json({ success: true, data: list, page: data.page || 1, pagecount: data.pagecount || 1, total: data.total || list.length });
+  const keyword = (url.searchParams.get('keyword') || url.searchParams.get('q') || '').toLowerCase();
+  const query = { ac: 'detail', pg: url.searchParams.get('page') || 1, wd: keyword || undefined };
+  if (sourceId) {
+    const source = await cmsSource(env, sourceId);
+    if (!source) return json({ success: false, error: 'Source not found' }, 404);
+    const data = await cmsRequest(source, { ...query, t: url.searchParams.get('category_id') || undefined });
+    const list = (data.list || []).map(item => ({ ...normalizeVideo(item), source_id: Number(sourceId) }));
+    return json({ success: true, data: list, page: data.page || 1, pagecount: data.pagecount || 1, total: data.total || list.length });
+  }
+  const sourceRows = await rows(env.DB, 'SELECT * FROM video_sources WHERE enabled=1 ORDER BY sort_order,id');
+  const settled = await Promise.allSettled(sourceRows.map(async source => {
+    if (env.fetch) source.fetch = env.fetch;
+    const data = await cmsRequest(source, query);
+    return (data.list || []).map(item => ({ ...normalizeVideo(item), source_id: Number(source.id) }));
+  }));
+  const list = settled.flatMap(result => result.status === 'fulfilled' ? result.value : []);
+  return json({ success: true, data: list, page: 1, pagecount: 1, total: list.length });
 }
 
 async function cmsDetail(request, env, pathVodId = null) {

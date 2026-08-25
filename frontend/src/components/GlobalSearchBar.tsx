@@ -17,18 +17,17 @@ interface GlobalSearchBarProps {
 }
 
 export function GlobalSearchBar({
-  sources, onSearch, onNavigate, activeView, activeModule, onModuleChange,
+  onSearch, onNavigate, activeView, activeModule, onModuleChange,
   onToggleSidebar, theme, onToggleTheme, isAdminPasswordEnabled,
 }: GlobalSearchBarProps) {
   const [keyword, setKeyword] = useState('');
-  const [sourceId, setSourceId] = useState<number | null>(null);
   const { isAuthenticated, login, logout, password } = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
   const [loginPassword, setLoginPassword] = useState('');
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (keyword.trim()) onSearch(keyword.trim(), sourceId);
+    if (keyword.trim()) onSearch(keyword.trim(), null);
   };
 
   const handleUser = async () => {
@@ -54,11 +53,7 @@ export function GlobalSearchBar({
           {onToggleSidebar && <button aria-label="打开菜单" onClick={onToggleSidebar} className="p-2 rounded-lg"><i className="fas fa-bars" /></button>}
           <button className="font-bold text-primary whitespace-nowrap" onClick={() => onNavigate('home')}>视频中心</button>
           <form onSubmit={submit} className="flex flex-1 min-w-0 gap-2">
-            <select aria-label="视频源" value={sourceId ?? ''} onChange={e => setSourceId(e.target.value ? Number(e.target.value) : null)} className="hidden sm:block max-w-40 rounded-lg border border-border-color bg-transparent px-2 text-sm">
-              <option value="">全部源</option>
-              {sources.filter(source => source.enabled && !source.hidden).map(source => <option key={source.id} value={source.id}>{source.name}</option>)}
-            </select>
-            <input aria-label="搜索视频" value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="搜索视频..." className="min-w-0 flex-1 rounded-lg border border-border-color bg-transparent px-3 py-2 text-sm" />
+            <input aria-label="搜索视频" value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="搜索全部视频..." className="min-w-0 flex-1 rounded-lg border border-border-color bg-transparent px-3 py-2 text-sm" />
             <button aria-label="搜索" type="submit" className="rounded-lg bg-blue-600 px-3 text-white"><i className="fas fa-search" /></button>
           </form>
           <button aria-label="打开管理中心" onClick={openAdmin} className="p-2 rounded-lg"><i className="fas fa-cog" /></button>
