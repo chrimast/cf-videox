@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { VideoSource, TvSource, LiveSource, NetdiskSource, TvChannel, Category } from '../types';
+import { VideoSource, TvSource, LiveSource, TvChannel, Category } from '../types';
 import { apiPost, apiGet } from '../utils/api';
 import { AppModule } from '../App';
 
@@ -11,8 +11,7 @@ interface NavParams {
     keyword?: string;
     platform?: string;
     liveSourceId?: number;
-    mediaServerId?: number;
-    netdiskSourceId?: number;
+
 }
 
 interface SidebarProps {
@@ -30,10 +29,6 @@ interface SidebarProps {
     // Live Props
     liveSources?: LiveSource[];
 
-    // Netdisk Props
-    netdiskSources?: NetdiskSource[];
-    selectedNetdiskSourceId?: number | null;
-    onNetdiskSourceChange?: (id: number) => void;
 
     tvRefreshKey?: number; // New prop
     currentChannelUrl?: string; // Current playing channel URL
@@ -51,10 +46,7 @@ interface SidebarProps {
     liveStatuses?: Record<number, any>;
     isAdminPasswordEnabled?: boolean;
 
-    // Media Server Props
-    mediaServers?: any[];
-    selectedMediaServerId?: number | null;
-    onMediaServerChange?: (id: number) => void;
+
 }
 
 export function Sidebar({
@@ -72,9 +64,6 @@ export function Sidebar({
 
     liveSources = [],
 
-    netdiskSources = [],
-    selectedNetdiskSourceId,
-    onNetdiskSourceChange,
 
     onNavigate,
     activeView,
@@ -88,9 +77,6 @@ export function Sidebar({
     theme = 'dark',
     liveStatuses = {},
 
-    mediaServers = [],
-    selectedMediaServerId,
-    onMediaServerChange
 }: SidebarProps) {
     const [isSourcesOpen, setIsSourcesOpen] = useState(true);
 
@@ -100,8 +86,6 @@ export function Sidebar({
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
     const [tvSearch, setTvSearch] = useState('');
 
-    // Media Server State
-    const [mediaServerCategories, setMediaServerCategories] = useState<Record<number, any[]>>({});
 
     // 加载电视频道
     useEffect(() => {
@@ -110,28 +94,7 @@ export function Sidebar({
         }
     }, [activeModule, selectedTvSourceId, tvRefreshKey]);
 
-    useEffect(() => {
-        if (activeModule === 'media_server' && mediaServers.length > 0) {
-            loadMediaServerCategories();
-        }
-    }, [activeModule, mediaServers]);
 
-    const loadMediaServerCategories = async () => {
-        try {
-            const newCategories: Record<number, any[]> = {};
-            await Promise.all(mediaServers.map(async (server) => {
-                if (server.enabled) {
-                    const res = await apiGet<any[]>(`/media-servers/${server.id}/libraries`);
-                    if (res.success && res.data) {
-                        newCategories[server.id] = res.data;
-                    }
-                }
-            }));
-            setMediaServerCategories(newCategories);
-        } catch (e) {
-            console.error('Failed to load media server categories', e);
-        }
-    };
 
     const loadTvChannels = async (sourceId: number) => {
         try {
@@ -168,13 +131,6 @@ export function Sidebar({
             // 只有在相关联的视图（源概览、分类列表、播放页）时才高亮对应的源
             const isSourceView = activeView === 'source' || activeView === 'category' || activeView === 'play';
             return isSourceView && sid === currentSourceId;
-        }
-
-        if (id.startsWith('netdisk-source-')) {
-            const sid = parseInt(id.split('-')[1]);
-            const currentNetdiskId = navParams.netdiskSourceId || selectedNetdiskSourceId;
-            const isNetdiskView = activeView === 'netdisk' || activeView === 'netdisk_play';
-            return isNetdiskView && sid === currentNetdiskId;
         }
 
         if (id.startsWith('live-play-')) {
@@ -311,125 +267,6 @@ export function Sidebar({
             </div>
         );
     };
-
-    const renderNetdiskSidebar = () => (
-        <div className="w-full space-y-0.5 mt-2">
-            {/* 全部网盘 */}
-            {!isMobile && (
-                <SidebarItem
-                    icon="fas fa-cloud"
-                    label="全部媒体"
-                    isActive={activeView === 'netdisk' && !selectedNetdiskSourceId}
-                    onClick={() => {
-                        onNetdiskSourceChange?.(0);  // 清空选中的网盘源
-                        onNavigate('netdisk', { netdiskSourceId: undefined });
-                        if (onCloseMobile) onCloseMobile();
-                    }}
-                    collapsed={collapsed}
-                />
-            )}
-
-            {/* 网盘源列表 */}
-            {netdiskSources.filter(s => s.enabled).map(source => {
-                const scanPaths = Array.isArray(source.scan_paths) ? source.scan_paths : [];
-                const isExpanded = expandedGroups[`netdisk-${source.id}`] !== false; // 默认展开
-
-                return (
-                    <div key={source.id} className="w-full">
-                        <SidebarItem
-                            icon="fas fa-hdd"
-                            label={source.name}
-                            isActive={isActive(`netdisk-source-${source.id}`) && !navParams.keyword}
-                            onClick={() => {
-                                if (!collapsed && scanPaths.length > 0) {
-                                    toggleGroup(`netdisk-${source.id}`);
-                                }
-                                onNetdiskSourceChange?.(source.id);
-                                onNavigate('netdisk', { netdiskSourceId: source.id });
-                            }}
-                            collapsed={collapsed}
-                            hasChildren={scanPaths.length > 0}
-                            isExpanded={isExpanded}
-                        />
-                        {!collapsed && isExpanded && scanPaths.length > 0 && (
-                            <div className="space-y-0.5">
-                                {scanPaths.map((pathObj: any, idx) => (
-                                    <SidebarItem
-                                        key={`${source.id}-${idx}`}
-                                        icon="fas fa-folder"
-                                        label={pathObj.name}
-                                        isActive={selectedNetdiskSourceId === source.id && navParams.keyword === pathObj.path}
-                                        onClick={() => {
-                                            onNetdiskSourceChange?.(source.id);
-                                            onNavigate('netdisk', { netdiskSourceId: source.id, keyword: pathObj.path });
-                                            if (isMobile && onCloseMobile) onCloseMobile();
-                                        }}
-                                        level={1}
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                );
-            })}
-        </div>
-    );
-
-    const renderMediaServerSidebar = () => (
-        <div className="w-full space-y-0.5 mt-2">
-            {mediaServers
-                .filter(s => s.enabled)
-                .map(server => {
-                    const categories = mediaServerCategories[server.id] || [];
-                    const isExpanded = expandedGroups[`media-server-${server.id}`] !== false;
-                    return (
-                        <div key={server.id} className="w-full">
-                            <SidebarItem
-                                icon={server.type === 'emby' ? 'fas fa-play-circle' : 'fas fa-server'}
-                                label={server.name}
-                                isActive={selectedMediaServerId === server.id && !navParams.categoryId}
-                                onClick={() => {
-                                    if (!collapsed && categories.length > 0) {
-                                        // 如果当前没展开，或者点击的是新服务器，确保展开列表
-                                        if (!isExpanded || selectedMediaServerId !== server.id) {
-                                            setExpandedGroups(prev => ({ ...prev, [`media-server-${server.id}`]: true }));
-                                        }
-                                    }
-                                    onMediaServerChange?.(server.id);
-                                    // 🔑 显式设置 categoryId 为 undefined，触发 MediaServer 组件显示首页聚合视图
-                                    onNavigate('media_server', { mediaServerId: server.id, categoryId: undefined });
-                                }}
-                                collapsed={collapsed}
-                                hasChildren={categories.length > 0}
-                                isExpanded={isExpanded}
-                            />
-                            {!collapsed && isExpanded && categories.length > 0 && (
-                                <div className="space-y-0.5">
-                                    {categories.map((lib) => (
-                                        <SidebarItem
-                                            key={lib.Id}
-                                            icon="fas fa-folder"
-                                            label={lib.Name}
-                                            isActive={selectedMediaServerId === server.id && navParams.categoryId === lib.Id}
-                                            onClick={() => {
-                                                onMediaServerChange?.(server.id);
-                                                onNavigate('media_server', {
-                                                    mediaServerId: server.id,
-                                                    categoryId: lib.Id,
-                                                    categoryName: lib.Name
-                                                });
-                                                if (isMobile && onCloseMobile) onCloseMobile();
-                                            }}
-                                            level={1}
-                                        />
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
-        </div>
-    );
 
     const renderVideoSidebar = () => (
         <div className="w-full space-y-0.5">
@@ -618,8 +455,6 @@ export function Sidebar({
                         {[
                             { key: 'home', label: '首页', icon: 'fa-home' },
                             { key: 'sources', label: '资源站', icon: 'fa-database' },
-                            { key: 'media_server', label: '影视库', icon: 'fa-film' },
-                            { key: 'netdisk', label: '媒体库', icon: 'fa-cloud' },
                             { key: 'tv', label: '电视', icon: 'fa-tv' },
                             { key: 'live', label: '直播', icon: 'fa-broadcast-tower' },
                         ].map(item => (
@@ -639,13 +474,7 @@ export function Sidebar({
 
                 {activeModule === 'tv'
                     ? renderTvSidebar()
-                    : (activeModule === 'live'
-                        ? renderLiveSidebar()
-                        : (activeModule === 'netdisk'
-                            ? renderNetdiskSidebar()
-                            : (activeModule === 'media_server'
-                                ? renderMediaServerSidebar()
-                                : renderVideoSidebar())))}
+                    : (activeModule === 'live' ? renderLiveSidebar() : renderVideoSidebar())}
             </div>
 
             {/* 底部功能按钮 */}

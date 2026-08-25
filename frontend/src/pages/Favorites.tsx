@@ -1,15 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Favorite, VideoSource, NetdiskSource } from '../types';
+import { Favorite, VideoSource } from '../types';
 import { apiGet, apiDelete } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 
 interface FavoritesProps {
     onNavigate: (view: string, params?: Record<string, unknown>) => void;
     sources: VideoSource[];
-    netdiskSources: NetdiskSource[];
 }
 
-export function Favorites({ onNavigate, sources, netdiskSources }: FavoritesProps) {
+export function Favorites({ onNavigate, sources }: FavoritesProps) {
     const { isAuthenticated } = useAuth();
     const [favorites, setFavorites] = useState<Favorite[]>([]);
     const [loading, setLoading] = useState(true);
@@ -33,16 +32,11 @@ export function Favorites({ onNavigate, sources, netdiskSources }: FavoritesProp
 
         // 获取所有隐藏源的 ID
         const hiddenCmsIds = new Set(sources.filter(s => s.hidden).map(s => s.id));
-        const hiddenNetdiskIds = new Set(netdiskSources.filter(s => s.hidden).map(s => s.id));
-
         return favorites.filter(fav => {
-            if (fav.source_type === 'netdisk') {
-                return !hiddenNetdiskIds.has(fav.source_id);
-            }
             // 默认为 cms 资源站
             return !hiddenCmsIds.has(fav.source_id);
         });
-    }, [favorites, isAuthenticated, sources, netdiskSources]);
+    }, [favorites, isAuthenticated, sources]);
 
     const handleRemove = async (id: number) => {
         const res = await apiDelete(`/favorites/${id}`);
@@ -52,25 +46,7 @@ export function Favorites({ onNavigate, sources, netdiskSources }: FavoritesProp
     };
 
     const handleClick = (fav: Favorite) => {
-        if (fav.source_type === 'netdisk') {
-            onNavigate('netdisk_play', {
-                sourceId: fav.source_id,
-                mediaId: parseInt(fav.vod_id)
-            });
-        } else if (fav.source_type === 'media_server') {
-            onNavigate('media_server_play', {
-                mediaServerId: fav.source_id,
-                vodId: fav.vod_id,
-                title: fav.title,
-                url: '',
-                cover: fav.cover
-            });
-        } else {
-            onNavigate('play', {
-                sourceId: fav.source_id,
-                vodId: fav.vod_id
-            });
-        }
+        onNavigate('play', { sourceId: fav.source_id, vodId: fav.vod_id });
     };
 
     if (loading) {

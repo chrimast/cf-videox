@@ -39,7 +39,7 @@ export const VideoCard = memo(({ video, onClick, showSource = false, sourceName 
                 </div>
 
                 {/* 更新状态 */}
-                {video.vod_remarks && !video.is_netdisk && (
+                {video.vod_remarks && (
                     <span className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-red-500/90 
                                    text-[10px] font-bold text-white rounded-md backdrop-blur-sm z-20">
                         {video.vod_remarks}

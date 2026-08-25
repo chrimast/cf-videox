@@ -3,7 +3,7 @@ import { ReactNode, useState, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { GlobalSearchBar } from './GlobalSearchBar';
 import { CategoryNav } from './CategoryNav';
-import { VideoSource, TvSource, LiveSource, NetdiskSource, TvChannel, Category } from '../types';
+import { VideoSource, TvSource, LiveSource, TvChannel, Category } from '../types';
 import { AppModule } from '../App';
 
 interface NavParams {
@@ -14,8 +14,7 @@ interface NavParams {
     keyword?: string;
     platform?: string;
     liveSourceId?: number;
-    netdiskSourceId?: number; // For Netdisk
-    mediaServerId?: number; // For Media Server
+
 }
 
 interface LayoutProps {
@@ -36,9 +35,6 @@ interface LayoutProps {
 
         liveSources?: LiveSource[];
 
-        netdiskSources?: NetdiskSource[];
-        selectedNetdiskSourceId?: number | null;
-        onNetdiskSourceChange?: (id: number) => void;
 
         onNavigate: (view: string, params?: Record<string, unknown>) => void;
         activeView: string;
@@ -50,10 +46,7 @@ interface LayoutProps {
         liveStatuses?: Record<number, any>;
         isAdminPasswordEnabled?: boolean;
 
-        // Media Server Props
-        mediaServers?: any[];
-        selectedMediaServerId?: number | null;
-        onMediaServerChange?: (id: number) => void;
+
     };
 }
 
@@ -70,8 +63,8 @@ export function Layout({ children, sidebarProps }: LayoutProps) {
     }, [isCollapsed]);
 
     // 处理全局搜索
-    const handleGlobalSearch = (keyword: string, sourceId: number | null, netdiskPath?: string, isMediaServer: boolean = false) => {
-        sidebarProps.onNavigate('search', { keyword, sourceId, netdiskPath, isMediaServer, _t: Date.now() });
+    const handleGlobalSearch = (keyword: string, sourceId: number | null) => {
+        sidebarProps.onNavigate('search', { keyword, sourceId, _t: Date.now() });
     };
 
     return (

@@ -1,0 +1,10 @@
+{
+  "name": "videox-cloudflare",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix frontend ci && npm --prefix frontend run build",
+    "test:worker": "npm --prefix worker test",
+    "build:docker": "docker compose build",
+    "up": "docker compose up -d"
+  }
+}

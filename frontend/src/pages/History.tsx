@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { PlayHistory, VideoSource, NetdiskSource } from '../types';
+import { PlayHistory, VideoSource } from '../types';
 import { apiGet, apiDelete } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -7,10 +7,9 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 interface HistoryProps {
     onNavigate: (view: string, params?: Record<string, unknown>) => void;
     sources: VideoSource[];
-    netdiskSources: NetdiskSource[];
 }
 
-export function History({ onNavigate, sources, netdiskSources }: HistoryProps) {
+export function History({ onNavigate, sources }: HistoryProps) {
     const { isAuthenticated } = useAuth();
     const [history, setHistory] = useState<PlayHistory[]>([]);
     const [loading, setLoading] = useState(true);
@@ -48,9 +47,7 @@ export function History({ onNavigate, sources, netdiskSources }: HistoryProps) {
         let filtered = history;
         if (!isAuthenticated) {
             const hiddenCmsIds = new Set(sources.filter(s => s.hidden).map(s => s.id));
-            const hiddenNetdiskIds = new Set(netdiskSources.filter(s => s.hidden).map(s => s.id));
             filtered = history.filter(item => {
-                if (item.source_type === 'netdisk') return !hiddenNetdiskIds.has(item.source_id);
                 return !hiddenCmsIds.has(item.source_id);
             });
         }
@@ -74,7 +71,7 @@ export function History({ onNavigate, sources, netdiskSources }: HistoryProps) {
         });
 
         return Object.entries(groups).filter(([_, items]) => items.length > 0);
-    }, [history, isAuthenticated, sources, netdiskSources]);
+    }, [history, isAuthenticated, sources]);
 
     const deleteOne = async (id: number, e: React.MouseEvent) => {
         e.stopPropagation();
@@ -101,18 +98,7 @@ export function History({ onNavigate, sources, netdiskSources }: HistoryProps) {
     };
 
     const handleClick = (item: PlayHistory) => {
-        if (item.source_type === 'netdisk') {
-            onNavigate('netdisk_play', {
-                sourceId: item.source_id,
-                mediaId: parseInt(item.vod_id),
-                videoIndex: item.episode - 1
-            });
-        } else {
-            onNavigate('play', {
-                sourceId: item.source_id,
-                vodId: item.vod_id
-            });
-        }
+        onNavigate('play', { sourceId: item.source_id, vodId: item.vod_id });
     };
 
     const formatProgressText = (progress: number, duration: number) => {
@@ -152,8 +138,7 @@ export function History({ onNavigate, sources, netdiskSources }: HistoryProps) {
         // 尝试从路径中提取文件名
         const parts = path.split(/[/\\]/);
         const fileName = parts[parts.length - 1];
-        // 移除常见视频后缀及 .strm
-        return fileName.replace(/\.(strm|mp4|mkv|avi|rmvb|ts|mov)$/i, '') || '正片';
+        return fileName.replace(/\.(mp4|mkv|avi|rmvb|ts|mov)$/i, '') || '正片';
     };
 
     if (loading) {
@@ -278,7 +263,7 @@ export function History({ onNavigate, sources, netdiskSources }: HistoryProps) {
                                                     </span>
                                                     {item.source_name && (
                                                         <span className="text-[10px] text-secondary opacity-70 flex items-center gap-1 font-medium">
-                                                            <i className={`fas ${item.source_type === 'netdisk' ? 'fa-cloud' : 'fa-link'} text-[9px]`}></i>
+                                                            <i className="fas fa-link text-[9px]"></i>
                                                             {item.source_name}
                                                         </span>
                                                     )}

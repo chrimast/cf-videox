@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { VideoSource, TvSource, LiveSource, NetdiskSource, Category } from './types';
+import { VideoSource, TvSource, LiveSource, Category } from './types';
 import { apiGet } from './utils/api';
 import { Layout } from './components/Layout';
 import { Home } from './pages/Home';
@@ -9,14 +9,11 @@ import { Play } from './pages/Play';
 import { TvPlayer } from './pages/TvPlayer';
 import { Live } from './pages/Live'; // New component
 import { LivePlayer } from './pages/LivePlayer'; // New component
-import { Netdisk } from './pages/Netdisk'; // Netdisk module
-import { NetdiskPlayer } from './pages/NetdiskPlayer'; // Netdisk Player
 import { Search } from './pages/Search';
 import { Admin } from './pages/Admin';
 import { Favorites } from './pages/Favorites';
 import { History } from './pages/History';
-import { MediaServer } from './pages/MediaServer';
-import { MediaServerPlay } from './pages/MediaServerPlay';
+
 import { NavigationProvider } from './contexts/NavigationContext';
 import { useAuth } from './contexts/AuthContext';
 import { SitePasswordGuard } from './components/SitePasswordGuard';
@@ -25,10 +22,10 @@ import { SitePasswordGuard } from './components/SitePasswordGuard';
 document.title = "VideoX - 视频中心";
 
 // 视图类型
-type ViewType = 'home' | 'source' | 'category' | 'play' | 'tv_play' | 'live' | 'live_play' | 'netdisk' | 'netdisk_play' | 'search' | 'favorites' | 'history' | 'admin' | 'media_server' | 'media_server_play';
+type ViewType = 'home' | 'source' | 'category' | 'play' | 'tv_play' | 'live' | 'live_play' | 'search' | 'favorites' | 'history' | 'admin';
 
 // 模块类型（顶部导航）
-export type AppModule = 'home' | 'sources' | 'tv' | 'live' | 'netdisk' | 'media_server';
+export type AppModule = 'home' | 'sources' | 'tv' | 'live';
 
 // 导航参数
 interface NavParams {
@@ -42,12 +39,7 @@ interface NavParams {
     liveSourceId?: number; // For Live
     tvSourceId?: number; // For TV
     channelUrl?: string; // For TV
-    mediaId?: number; // For Netdisk
-    videoIndex?: number; // For Netdisk
-    netdiskSourceId?: number; // For Netdisk source selection
-    netdiskPath?: string; // For Netdisk search
-    isMediaServer?: boolean; // 🚀 增加此标识，用于搜索路由判定
-    mediaServerId?: number; // For Media Server
+
     title?: string;
     url?: string;
     cover?: string;
@@ -122,12 +114,6 @@ function VideoApp() {
     // 直播源
     const [liveSources, setLiveSources] = useState<LiveSource[]>([]);
 
-    const [netdiskSources, setNetdiskSources] = useState<NetdiskSource[]>([]);
-    const [selectedNetdiskSourceId, setSelectedNetdiskSourceId] = useState<number | null>(null);
-
-    // 影视库服务器
-    const [mediaServers, setMediaServers] = useState<any[]>([]);
-    const [selectedMediaServerId, setSelectedMediaServerId] = useState<number | null>(null);
 
     // 安全设置状态
     const [isAdminPasswordEnabled, setIsAdminPasswordEnabled] = useState<boolean>(false);
@@ -196,16 +182,6 @@ function VideoApp() {
             // 直播模块
             setActiveView('live');
             setNavParams({});
-        } else if (module === 'netdisk') {
-            // 网盘模块
-            setActiveView('netdisk');
-            setNavParams({});
-            setSelectedNetdiskSourceId(null);  // 清空选中的网盘源，显示全部网盘视图
-        } else if (module === 'media_server') {
-            // 影视库模块：由 Effect 统一处理自动跳转
-            setActiveView('media_server');
-            // 🚀 修复补丁：清理可能存在的资源站分类参数，防止影视库页面显示错误标题和内容
-            setNavParams({});
         } else {
             // 预留模块：显示占位页面
             setActiveView('home'); // 临时使用 home 视图
@@ -236,12 +212,11 @@ function VideoApp() {
     const loadSourcesAndCategories = async () => {
         try {
             // 1. 并发加载基础源数据
-            const [sourcesRes, tvRes, liveRes, netdiskRes, mediaServersRes, settingsRes] = await Promise.all([
+            const [sourcesRes, tvRes, liveRes, settingsRes] = await Promise.all([
                 apiGet<VideoSource[]>('/sources'),
                 apiGet<TvSource[]>('/tv/sources'),
                 apiGet<LiveSource[]>('/live/sources'),
-                apiGet<NetdiskSource[]>('/netdisk/sources'),
-                apiGet<any[]>('/media-servers'),
+
                 apiGet<any>('/settings')
             ]);
 
@@ -310,31 +285,6 @@ function VideoApp() {
                 setLiveSources(liveRes.data.filter(s => s.enabled === 1));
             }
 
-            // 处理网盘源
-            if (netdiskRes.success && netdiskRes.data) {
-                const enabledNetdisk = netdiskRes.data.filter(s =>
-                    s.enabled && (isAuthenticated || !isAdminPasswordEnabled || !s.hidden)
-                );
-                setNetdiskSources(enabledNetdisk);
-
-                // 验证选中的网盘源是否有效
-                if (selectedNetdiskSourceId && !enabledNetdisk.some(s => s.id === selectedNetdiskSourceId)) {
-                    setSelectedNetdiskSourceId(null);
-                }
-            }
-
-            // 处理影视库服务器
-            if (mediaServersRes && mediaServersRes.success && mediaServersRes.data) {
-                // 如果开启了密码保护且未登录，则过滤掉隐藏的服务器
-                const enabledServers = mediaServersRes.data.filter((s: any) =>
-                    s.enabled && (isAuthenticated || !isAdminPasswordEnabled || !s.hidden)
-                );
-                setMediaServers(enabledServers);
-
-                if (selectedMediaServerId && !enabledServers.some((s: any) => s.id === selectedMediaServerId)) {
-                    setSelectedMediaServerId(null);
-                }
-            }
 
         } catch (error) {
             console.error('[App] Failed to load sources:', error);
@@ -397,13 +347,6 @@ function VideoApp() {
         setActiveModule('tv');
     };
 
-    // 切换影视库服务器
-    const handleMediaServerChange = (id: number) => {
-        setSelectedMediaServerId(id);
-        setActiveView('media_server');
-        setNavParams({ mediaServerId: id });
-        setActiveModule('media_server');
-    };
 
     // 主题管理
     const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -427,18 +370,6 @@ function VideoApp() {
         setTheme(prev => prev === 'light' ? 'dark' : 'light');
     };
 
-    // 🚀 核心补丁：当处于影视库模块且数据加载完成时，如果没有选中的库，自动选择第一个
-    useEffect(() => {
-        if (isLoaded && activeModule === 'media_server' && !navParams.mediaServerId) {
-            const firstServer = mediaServers.find(s => s.enabled);
-            const targetId = selectedMediaServerId || firstServer?.id;
-            if (targetId) {
-                console.log('[AutoNav] Redirecting to first media server:', targetId);
-                if (!selectedMediaServerId) setSelectedMediaServerId(targetId);
-                setNavParams(prev => ({ ...prev, mediaServerId: targetId }));
-            }
-        }
-    }, [isLoaded, activeModule, mediaServers, selectedMediaServerId, navParams.mediaServerId]);
 
     // 发送最小化侧边栏配置到主应用
     useEffect(() => {
@@ -504,18 +435,6 @@ function VideoApp() {
         return sources.some(s => s.id === id);
     };
 
-    // 辅助函数：网盘源可见性
-    const isNetdiskVisible = (id?: number) => {
-        if (!id) return true;
-        return netdiskSources.some(s => s.id === id);
-    };
-
-    // 辅助函数：影视库服务器可见性
-    const isMediaServerVisible = (id?: number) => {
-        if (!id) return true;
-        return mediaServers.some(s => s.id === id);
-    };
-
     return (
         <SitePasswordGuard>
             <NavigationProvider navigate={navigate}>
@@ -535,10 +454,6 @@ function VideoApp() {
 
                         liveSources, // Pass live sources to sidebar
 
-                        netdiskSources, // Pass netdisk sources to sidebar
-                        selectedNetdiskSourceId,
-                        onNetdiskSourceChange: (id: number) => setSelectedNetdiskSourceId(id),
-
                         liveStatuses,   // 传递直播状态数据
 
                         onNavigate: navigate,
@@ -546,10 +461,6 @@ function VideoApp() {
                         navParams,
                         activeModule,
                         onModuleChange: handleModuleChange,
-
-                        mediaServers,
-                        selectedMediaServerId,
-                        onMediaServerChange: handleMediaServerChange,
 
                         theme,
                         onToggleTheme: toggleTheme,
@@ -607,60 +518,15 @@ function VideoApp() {
                             onNavigate={navigate}
                         />
                     )}
-                    {activeView === 'netdisk' && (
-                        isNetdiskVisible(navParams.netdiskSourceId || selectedNetdiskSourceId || undefined) ? (
-                            <Netdisk
-                                sourceId={navParams.netdiskSourceId || selectedNetdiskSourceId || undefined}
-                                selectedPath={navParams.keyword || undefined}
-                                onPlay={(mediaId, sourceId, videoIndex) => {
-                                    navigate('netdisk_play', { mediaId, sourceId, videoIndex });
-                                }}
-                            />
-                        ) : <AccessDenied onGoHome={() => navigate('home')} />
-                    )}
-                    {activeView === 'netdisk_play' && navParams.mediaId && navParams.sourceId && (
-                        isNetdiskVisible(navParams.sourceId) ? (
-                            <NetdiskPlayer
-                                mediaId={navParams.mediaId}
-                                sourceId={navParams.sourceId}
-                                initialVideoIndex={navParams.videoIndex}
-                                onNavigate={navigate}
-                                onGoBack={goBack}
-                            />
-                        ) : <AccessDenied onGoHome={() => navigate('home')} />
-                    )}
+
                     {activeView === 'search' && (
                         <Search
                             initialKeyword={navParams.keyword}
                             sourceId={navParams.sourceId ?? null}
-                            netdiskPath={navParams.netdiskPath}
-                            isMediaServer={navParams.isMediaServer}
                             _t={navParams._t}
                             sources={sources}
                             onNavigate={navigate}
                         />
-                    )}
-                    {activeView === 'media_server' && (
-                        isMediaServerVisible(navParams.mediaServerId || selectedMediaServerId || undefined) ? (
-                            <MediaServer
-                                serverId={navParams.mediaServerId || selectedMediaServerId || undefined}
-                                categoryId={navParams.categoryId}
-                                categoryName={navParams.categoryName}
-                                onNavigate={navigate}
-                            />
-                        ) : <AccessDenied onGoHome={() => navigate('home')} />
-                    )}
-                    {activeView === 'media_server_play' && navParams.mediaServerId && navParams.vodId && (
-                        isMediaServerVisible(navParams.mediaServerId) ? (
-                            <MediaServerPlay
-                                mediaServerId={navParams.mediaServerId}
-                                vodId={navParams.vodId}
-                                title={navParams.title || ''}
-                                streamUrl={navParams.url || ''}
-                                cover={navParams.cover || ''}
-                                onGoBack={goBack}
-                            />
-                        ) : <AccessDenied onGoHome={() => navigate('home')} />
                     )}
                     {(activeView === 'favorites' || activeView === 'history' || activeView === 'admin') && !isAuthenticated && (
                         <AccessDenied onGoHome={() => navigate('home')} />
@@ -669,14 +535,12 @@ function VideoApp() {
                         <Favorites
                             onNavigate={navigate}
                             sources={sources}
-                            netdiskSources={netdiskSources}
                         />
                     )}
                     {activeView === 'history' && isAuthenticated && (
                         <History
                             onNavigate={navigate}
                             sources={sources}
-                            netdiskSources={netdiskSources}
                         />
                     )}
                     {activeView === 'admin' && isAuthenticated && (

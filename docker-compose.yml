@@ -1,0 +1,18 @@
+services:
+  videox:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: videox
+    ports:
+      - "3100:3100"
+    environment:
+      NODE_ENV: production
+      PORT: 3100
+      VIDEOX_DATA_DIR: /app/data
+    volumes:
+      - videox-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  videox-data:

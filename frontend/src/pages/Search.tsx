@@ -5,14 +5,12 @@ import { VideoCard } from '../components/VideoCard';
 interface SearchProps {
     initialKeyword?: string;
     sourceId?: number | null;
-    netdiskPath?: string;
-    isMediaServer?: boolean;
     _t?: number; // 接收强制刷新时间戳
     sources?: VideoSource[];
     onNavigate: (view: string, params?: Record<string, unknown>) => void;
 }
 
-export function Search({ initialKeyword, sourceId, netdiskPath, isMediaServer, _t, sources = [], onNavigate }: SearchProps) {
+export function Search({ initialKeyword, sourceId, _t, sources = [], onNavigate }: SearchProps) {
     const [results, setResults] = useState<Video[]>([]);
     const [loading, setLoading] = useState(false);
     const [searched, setSearched] = useState(false);
@@ -21,7 +19,7 @@ export function Search({ initialKeyword, sourceId, netdiskPath, isMediaServer, _
     const [isFinished, setIsFinished] = useState(false);
 
     // 核心搜索函数
-    const doSearch = async (kw: string, srcId: number | null, ndPath?: string, isMediaServer: boolean = false) => {
+    const doSearch = async (kw: string, srcId: number | null) => {
         if (!kw.trim()) return;
 
         setLoading(true);
@@ -42,52 +40,16 @@ export function Search({ initialKeyword, sourceId, netdiskPath, isMediaServer, _
             } catch (e) { /* ignore */ }
         }
 
-        // 🛠️ 辅助搜索：媒体库 (DB)
-        const runNetdiskSearch = async (targetPath?: string) => {
-            const url = new URL(`${window.location.origin}/api/netdisk/media`);
-            url.searchParams.append('keyword', kw.trim());
-            if (targetPath && targetPath !== '/') {
-                url.searchParams.append('path', targetPath);
-            }
-            url.searchParams.append('limit', '100');
-
-            try {
-                const response = await fetch(url.toString(), {
-                    headers: {
-                        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-                        ...(adminPassword ? { 'X-Admin-Password': adminPassword } : {})
-                    }
-                });
-                const res = await response.json();
-                if (res.success && Array.isArray(res.data)) {
-                    return res.data.map((item: any) => ({
-                        source_id: item.source_id,
-                        vod_id: item.id.toString(),
-                        vod_name: item.title,
-                        vod_pic: item.poster_url || '',
-                        type_name: item.media_type === 'movie' ? '电影' : '剧集',
-                        vod_year: item.year?.toString() || '',
-                        vod_remarks: item.rating ? `⭐ ${item.rating}` : (item.original_title || ''),
-                        is_netdisk: true
-                    }));
-                }
-            } catch (err) {
-                console.error('[Search] Netdisk search failed:', err);
-            }
-            return [];
-        };
 
         // 🛠️ 辅助搜索：资源站 (SSE)
-        const runCmsSearch = async (forceMediaServer?: boolean) => {
+        const runCmsSearch = async () => {
             const url = new URL(`${window.location.origin}/api/videos/search`);
             url.searchParams.append('keyword', kw.trim());
             url.searchParams.append('stream', 'true');
             if (srcId !== null && srcId !== undefined) {
                 url.searchParams.append('source_id', String(srcId));
             }
-            if (isMediaServer || forceMediaServer) {
-                url.searchParams.append('is_media_server', 'true');
-            }
+
 
             try {
                 const response = await fetch(url.toString(), {
@@ -138,30 +100,11 @@ export function Search({ initialKeyword, sourceId, netdiskPath, isMediaServer, _
 
         // 🚀 执行策略
         try {
-            if (ndPath) {
-                // 仅搜媒体库
-                setSearchingSource('正在搜索媒体库...');
-                const results = await runNetdiskSearch(ndPath);
-                setResults(results);
-            } else if (isMediaServer) {
-                // 仅搜影视库 (Emby/Jellyfin)
-                setSearchingSource('正在搜索影视库...');
-                await runCmsSearch(true);
-            } else if (srcId) {
+            if (srcId) {
                 // 仅搜指定资源站
                 await runCmsSearch();
             } else {
-                // 全部源：并行方案
-                setSearchingSource('同步检索媒体库与资源站...');
-
-                // 1. 媒体库优先展示 (并行执行)
-                runNetdiskSearch().then(ndResults => {
-                    if (ndResults.length > 0) {
-                        setResults(prev => [...ndResults, ...prev.filter(v => !(v as any).is_netdisk)]);
-                    }
-                });
-
-                // 2. 资源站流式跟进
+                setSearchingSource('正在检索视频源...');
                 await runCmsSearch();
             }
         } catch (error) {
@@ -175,31 +118,12 @@ export function Search({ initialKeyword, sourceId, netdiskPath, isMediaServer, _
 
     useEffect(() => {
         if (initialKeyword) {
-            doSearch(initialKeyword, sourceId ?? null, netdiskPath, isMediaServer);
+            doSearch(initialKeyword, sourceId ?? null);
         }
-    }, [initialKeyword, sourceId, netdiskPath, isMediaServer, _t]); // 🚀 监听 _t，确保即便关键词不变也能重新搜索
+    }, [initialKeyword, sourceId, _t]);
 
     const handleVideoClick = (video: Video) => {
-        if ((video as any).is_netdisk) {
-            onNavigate('netdisk_play', {
-                mediaId: parseInt(video.vod_id),
-                sourceId: video.source_id,
-                videoIndex: 0
-            });
-        } else if ((video as any).is_media_server) {
-            onNavigate('media_server_play', {
-                mediaServerId: video.source_id,
-                vodId: video.vod_id,
-                title: video.vod_name,
-                url: '',
-                cover: video.vod_pic
-            });
-        } else {
-            onNavigate('play', {
-                sourceId: video.source_id,
-                vodId: video.vod_id
-            });
-        }
+        onNavigate('play', { sourceId: video.source_id, vodId: video.vod_id });
     };
 
     const getSourceName = (srcId: number) => {
@@ -208,7 +132,6 @@ export function Search({ initialKeyword, sourceId, netdiskPath, isMediaServer, _
     };
 
     const getSearchScope = () => {
-        if (netdiskPath) return `媒体库: ${netdiskPath.split('/').pop()}`;
         if (sourceId === null || sourceId === undefined) return '全部视频源';
         return getSourceName(sourceId);
     };
@@ -241,7 +164,7 @@ export function Search({ initialKeyword, sourceId, netdiskPath, isMediaServer, _
                         <span className="px-2.5 py-0.5 bg-secondary/40 text-primary rounded-lg border border-border-color font-bold text-xs">{getSearchScope()}</span>
                         <div className="h-3 w-px bg-white/10 mx-1"></div>
                         <span className="text-secondary opacity-60">关键词</span>
-                        <span className={`${netdiskPath ? 'text-green-500' : 'text-blue-500'} font-black`}>"{currentKeyword}"</span>
+                        <span className="text-blue-500 font-black">"{currentKeyword}"</span>
                     </div>
                     {isFinished && (
                         <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-secondary opacity-40">
@@ -270,7 +193,7 @@ export function Search({ initialKeyword, sourceId, netdiskPath, isMediaServer, _
                                     video={video}
                                     onClick={() => handleVideoClick(video)}
                                     showSource={true}
-                                    sourceName={video.is_netdisk ? '媒体库' : (video.is_media_server ? (video.source_name || '影视库') : getSourceName(video.source_id!))}
+                                    sourceName={getSourceName(video.source_id!)}
                                 />
                             ))}
                         </div>

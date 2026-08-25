@@ -4,8 +4,7 @@ import { SettingsManager } from '../components/SettingsManager';
 import { HomeManager } from '../components/HomeManager';
 import { TvSourceManager } from '../components/TvSourceManager';
 import { LiveSourceManager } from '../components/LiveSourceManager';
-import { NetdiskSourceManager } from '../components/NetdiskSourceManager';
-import { MediaServerManager } from '../components/MediaServerManager';
+
 import { useAuth } from '../contexts/AuthContext';
 import { VideoSource } from '../types';
 import { apiGet } from '../utils/api';
@@ -15,7 +14,7 @@ interface AdminProps {
     onSourcesChange?: () => void;
 }
 
-type TabType = 'home' | 'sources' | 'tv_sources' | 'live_sources' | 'netdisk_sources' | 'media_servers' | 'settings';
+type TabType = 'home' | 'sources' | 'tv_sources' | 'live_sources' | 'settings';
 
 export function Admin({ onNavigate: _onNavigate, onSourcesChange }: AdminProps) {
     const [activeTab, setActiveTab] = useState<TabType>('home');
@@ -166,8 +165,7 @@ export function Admin({ onNavigate: _onNavigate, onSourcesChange }: AdminProps) 
                 {[
                     { id: 'home', label: '首页配置', icon: 'fa-home' },
                     { id: 'sources', label: '资源站', icon: 'fa-database' },
-                    { id: 'media_servers', label: '影视库', icon: 'fa-film' },
-                    { id: 'netdisk_sources', label: '媒体库', icon: 'fa-cloud' },
+
                     { id: 'tv_sources', label: '电视直播', icon: 'fa-tv' },
                     { id: 'live_sources', label: '热门直播', icon: 'fa-broadcast-tower' },
                     { id: 'settings', label: '系统设置', icon: 'fa-cog' }
@@ -208,15 +206,6 @@ export function Admin({ onNavigate: _onNavigate, onSourcesChange }: AdminProps) 
                 <LiveSourceManager onSourcesChange={() => { onSourcesChange?.(); }} />
             )}
 
-            {/* 网盘源管理 */}
-            {activeTab === 'netdisk_sources' && (
-                <NetdiskSourceManager onSourceChange={() => { onSourcesChange?.(); }} />
-            )}
-
-            {/* 影视库管理 */}
-            {activeTab === 'media_servers' && (
-                <MediaServerManager onServersChange={() => { onSourcesChange?.(); }} />
-            )}
 
             {/* 系统设置 - 使用独立组件 */}
             {activeTab === 'settings' && (

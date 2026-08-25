@@ -4,7 +4,7 @@
 export interface VideoSource {
     id: number;
     name: string;
-    type: 'cms_api' | 'alist';
+    type: 'cms_api';
     url: string;
     api_key?: string;
     enabled: number;
@@ -78,48 +78,6 @@ export interface LiveStatus {
     updated_at: string;
 }
 
-/**
- * 网盘扫描路径
- */
-export interface NetdiskScanPath {
-    name: string;
-    path: string;
-}
-
-/**
- * 网盘源
- */
-export interface NetdiskSource {
-    id: number;
-    name: string;
-    type: string;
-    url: string;
-    username?: string;
-    root_path: string;
-    scan_paths?: NetdiskScanPath[] | string; // 指定扫描的目录列表
-    enabled: number;
-    proxy_enabled?: number;
-    hidden?: number;
-    remark?: string;
-    sort_order: number;
-    created_at: string;
-    updated_at: string;
-}
-
-/**
- * 网盘文件
- */
-export interface NetdiskFile {
-    name: string;
-    size: number;
-    is_dir: boolean;
-    modified: string;
-    created: string;
-    thumb?: string;
-    type: number;
-    isVideo?: boolean;
-    ext?: string;
-}
 
 /**
  * 分类
@@ -156,8 +114,7 @@ export interface Video {
     vod_actor?: string;
     source_id?: number;
     source_name?: string;
-    is_netdisk?: boolean;
-    is_media_server?: boolean;
+
 }
 
 /**
@@ -273,12 +230,6 @@ export interface Settings {
     default_source_id: string;
     theme: 'dark' | 'light';
 
-    // STRM 转码配置
-    strm_transcode_enabled: boolean;
-    strm_transcode_mode: 'auto' | 'force';
-    ffmpeg_path: string;
-    ffmpeg_hwaccel: 'none' | 'nvenc' | 'qsv' | 'vaapi' | 'auto';
-    ffmpeg_quality: 'fast' | 'medium' | 'high';
 
     // 并发设置
     scan_concurrency: number;
