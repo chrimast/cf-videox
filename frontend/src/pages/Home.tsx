@@ -125,14 +125,15 @@ export function Home() {
         if (showLoading) setLoading(true);
         try {
             // 1. 先获取缓存数据
-            const res = await apiGet<{ data: HomeData; lastUpdated: string | null }>('/home');
+            const res = await apiGet<HomeData>('/home');
 
             if (res.success && res.data) {
-                setData(res.data.data);
+                setData(res.data);
 
                 // 2. 判断是否需要自动刷新 (24小时刷新一次)
-                if (res.data.lastUpdated) {
-                    const lastUpdated = new Date(res.data.lastUpdated);
+                const lastUpdatedValue = (res as typeof res & { lastUpdated?: string | null }).lastUpdated;
+                if (lastUpdatedValue) {
+                    const lastUpdated = new Date(lastUpdatedValue);
                     const now = new Date();
                     const hoursDiff = (now.getTime() - lastUpdated.getTime()) / (1000 * 60 * 60);
 
