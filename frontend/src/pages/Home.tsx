@@ -97,6 +97,8 @@ export function Home() {
     const navigate = useAppNavigate();
     const [data, setData] = useState<HomeData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [tmdbHot, setTmdbHot] = useState<Video[]>([]);
+    const [tmdbEnabled, setTmdbEnabled] = useState(false);
     const [updating, setUpdating] = useState(false);
     const [refreshingSection, setRefreshingSection] = useState<string | null>(null);
     // 记录每个板块当前选中的 Tab (默认为 'latest')
@@ -109,6 +111,7 @@ export function Home() {
 
     useEffect(() => {
         loadData();
+        loadTmdbHot();
 
         // 监听同步消息
         const channel = new BroadcastChannel('video-plugin-sync');
@@ -120,6 +123,18 @@ export function Home() {
         };
         return () => channel.close();
     }, []);
+
+    const loadTmdbHot = async () => {
+        try {
+            const res = await apiGet<Video[]>('/tmdb/now-playing');
+            if (res.success && res.data?.length) {
+                setTmdbHot(res.data);
+                setTmdbEnabled(true);
+            }
+        } catch (error) {
+            console.warn('[Home] TMDB now-playing unavailable, using source data:', error);
+        }
+    };
 
     const loadData = async (showLoading = true) => {
         if (showLoading) setLoading(true);
@@ -258,6 +273,10 @@ export function Home() {
     };
 
     const handleVideoClick = (video: Video) => {
+        if (!video.source_id) {
+            navigate('search', { keyword: video.vod_name, sourceId: null, _t: Date.now() });
+            return;
+        }
         navigate('play', {
             sourceId: video.source_id,
             vodId: video.vod_id
@@ -337,7 +356,7 @@ export function Home() {
                     </button>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-3 sm:gap-4 lg:gap-5">
-                    {data.hot?.slice(1, 17).map(video => (
+                    {(tmdbEnabled ? tmdbHot : data.hot)?.slice(0, 16).map(video => (
                         <VideoCard
                             key={`hot-${video.source_id}-${video.vod_id}`}
                             video={video}
