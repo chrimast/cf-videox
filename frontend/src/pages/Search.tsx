@@ -45,7 +45,7 @@ export function Search({ initialKeyword, sourceId, _t, sources = [], onNavigate 
         const runCmsSearch = async () => {
             const url = new URL(`${window.location.origin}/api/videos/search`);
             url.searchParams.append('keyword', kw.trim());
-            url.searchParams.append('stream', 'true');
+
             if (srcId !== null && srcId !== undefined) {
                 url.searchParams.append('source_id', String(srcId));
             }
@@ -60,6 +60,14 @@ export function Search({ initialKeyword, sourceId, _t, sources = [], onNavigate 
                     }
                 });
 
+                const contentType = response.headers.get('content-type') || '';
+                if (contentType.includes('application/json')) {
+                    const payload = await response.json();
+                    const list = Array.isArray(payload.data) ? payload.data : [];
+                    setResults(list.map((v: any) => ({ ...v, vod_pic: v.vod_pic || v.pic || '', vod_name: v.vod_name || v.name || '' })));
+                    setSearchingSource(`已从全部视频源获取 ${list.length} 条结果`);
+                    return;
+                }
                 if (!response.body) return;
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
