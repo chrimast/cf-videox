@@ -8,9 +8,10 @@ import { apiGet } from '../utils/api';
 interface LivePlayerProps {
     sourceId?: number;
     onNavigate: (view: string, params?: Record<string, unknown>) => void;
+    onGoBack?: () => void;
 }
 
-export function LivePlayer({ sourceId, onNavigate }: LivePlayerProps) {
+export function LivePlayer({ sourceId, onNavigate, onGoBack }: LivePlayerProps) {
     const playerRef = useRef<HTMLDivElement>(null);
     const artRef = useRef<Artplayer | null>(null);
     const [loading, setLoading] = useState(true);
@@ -160,7 +161,7 @@ export function LivePlayer({ sourceId, onNavigate }: LivePlayerProps) {
                     <p className="text-xl font-bold mb-2">出错了</p>
                     <p className="text-secondary mb-6">{error}</p>
                     <button
-                        onClick={() => onNavigate('live')}
+                        onClick={() => onGoBack ? onGoBack() : onNavigate('live')}
                         className="px-6 py-2 bg-red-600 hover:bg-red-700 rounded-full transition-colors"
                     >
                         返回列表
@@ -175,7 +176,7 @@ export function LivePlayer({ sourceId, onNavigate }: LivePlayerProps) {
             {/* Header */}
             <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 to-transparent z-[100] transition-opacity flex justify-between items-center group-hover:opacity-100 opacity-100">
                 <button
-                    onClick={() => onNavigate('live')}
+                    onClick={() => onGoBack ? onGoBack() : onNavigate('live')}
                     className="text-primary/80 hover:text-primary flex items-center gap-2"
                 >
                     <i className="fas fa-arrow-left"></i>

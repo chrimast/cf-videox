@@ -92,6 +92,10 @@ function VideoApp() {
     // 导航历史记录栈
     const [navHistory, setNavHistory] = useState<Array<{ view: ViewType; params: NavParams }>>([]);
 
+    useEffect(() => {
+        window.history.replaceState({ videox: true }, '', window.location.href);
+    }, []);
+
     // 当前激活的模块（顶部导航）
     const [activeModule, setActiveModule] = useState<AppModule>(() => {
         return (localStorage.getItem(ACTIVE_MODULE_KEY) as AppModule) || 'home';
@@ -136,7 +140,10 @@ function VideoApp() {
     // 导航函数（带站内历史记录）
     const navigate = (view: string, params: Record<string, unknown> = {}) => {
         // 播放页也记录来源页面，确保返回顺序为：播放页 → 搜索页 → 首页
-        if (view !== activeView) setNavHistory(prev => [...prev, { view: activeView, params: navParams }]);
+        if (view !== activeView) {
+            window.history.pushState({ videox: true }, '', window.location.href);
+            setNavHistory(prev => [...prev, { view: activeView, params: navParams }]);
+        }
         setActiveView(view as ViewType);
         setNavParams(params as NavParams);
     };
@@ -144,10 +151,7 @@ function VideoApp() {
     // 返回上一级
     const goBack = () => {
         if (navHistory.length > 0) {
-            const prev = navHistory[navHistory.length - 1];
-            setNavHistory(h => h.slice(0, -1));
-            setActiveView(prev.view);
-            setNavParams(prev.params);
+            window.history.back();
         } else {
             // 没有历史记录时回到首页
             setActiveView('home');
@@ -155,7 +159,19 @@ function VideoApp() {
         }
     };
 
-    // 模块切换函数
+    useEffect(() => {
+        const handlePopState = () => {
+            setNavHistory(history => {
+                if (history.length === 0) return history;
+                const prev = history[history.length - 1];
+                setActiveView(prev.view);
+                setNavParams(prev.params);
+                return history.slice(0, -1);
+            });
+        };
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, []);
     const handleModuleChange = (module: AppModule) => {
         setActiveModule(module);
         // 根据模块切换默认视图
@@ -505,6 +521,7 @@ function VideoApp() {
                             tvSourceId={navParams.tvSourceId || selectedTvSourceId || undefined}
                             channelUrl={navParams.channelUrl}
                             onNavigate={navigate}
+                            onGoBack={goBack}
                         />
                     )}
                     {activeView === 'live' && (
@@ -514,6 +531,7 @@ function VideoApp() {
                         <LivePlayer
                             sourceId={navParams.liveSourceId}
                             onNavigate={navigate}
+                            onGoBack={goBack}
                         />
                     )}
 

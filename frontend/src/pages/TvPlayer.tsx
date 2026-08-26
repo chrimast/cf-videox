@@ -7,9 +7,10 @@ interface TvPlayerProps {
     tvSourceId?: number;
     channelUrl?: string;
     onNavigate: (view: string, params?: Record<string, unknown>) => void;
+    onGoBack?: () => void;
 }
 
-export function TvPlayer({ tvSourceId, channelUrl, onNavigate }: TvPlayerProps) {
+export function TvPlayer({ tvSourceId, channelUrl, onNavigate, onGoBack }: TvPlayerProps) {
     const playerRef = useRef<HTMLDivElement>(null);
     const artRef = useRef<Artplayer | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -135,7 +136,7 @@ export function TvPlayer({ tvSourceId, channelUrl, onNavigate }: TvPlayerProps) 
             {/* 顶部简单的返回/标题栏 (鼠标悬停显示) */}
             <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 to-transparent z-[100] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex justify-between items-center">
                 <button
-                    onClick={() => onNavigate('home')}
+                    onClick={() => onGoBack ? onGoBack() : onNavigate('home')}
                     className="pointer-events-auto text-primary/80 hover:text-primary flex items-center gap-2"
                 >
                     <i className="fas fa-arrow-left"></i>
