@@ -32,7 +32,7 @@ export function GlobalSearchBar({
   };
 
   const handleUser = async () => {
-    if (isAuthenticated) { setAccountOpen(prev => !prev); return; }
+    if (isAuthenticated) { onNavigate('admin'); setAccountOpen(false); return; }
     if (!isAdminPasswordEnabled) { await login(''); return; }
     setLoginOpen(true);
   };

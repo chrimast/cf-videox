@@ -111,8 +111,8 @@ export function SitePasswordGuard({ children }: SitePasswordGuardProps) {
                                 onChange={e => setPassword(e.target.value)}
                                 placeholder="访问密码"
                                 autoFocus
-                                className="w-full px-5 py-4 bg-white/10 text-white rounded-2xl border border-border-color 
-                                         focus:border-blue-500 focus:bg-white/20 focus:outline-none text-center transition-all placeholder:text-white/20"
+                                className="w-full px-5 py-4 bg-secondary text-primary rounded-2xl border border-border-color
+                                         focus:border-blue-500 focus:bg-tertiary focus:outline-none text-center transition-all placeholder:text-secondary"
                             />
                             {error && (
                                 <div className="py-2 px-4 bg-red-500/10 border border-red-500/20 rounded-xl">
