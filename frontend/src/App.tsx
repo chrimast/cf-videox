@@ -133,12 +133,10 @@ function VideoApp() {
         return saved ? parseInt(saved) : null;
     });
 
-    // 导航函数（带历史记录）
+    // 导航函数（带站内历史记录）
     const navigate = (view: string, params: Record<string, unknown> = {}) => {
-        // 将当前视图推入历史栈（不推入 play 页面避免重复）
-        if (activeView !== 'play' && activeView !== 'tv_play') {
-            setNavHistory(prev => [...prev, { view: activeView, params: navParams }]);
-        }
+        // 播放页也记录来源页面，确保返回顺序为：播放页 → 搜索页 → 首页
+        if (view !== activeView) setNavHistory(prev => [...prev, { view: activeView, params: navParams }]);
         setActiveView(view as ViewType);
         setNavParams(params as NavParams);
     };
