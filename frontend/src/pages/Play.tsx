@@ -368,7 +368,7 @@ export function Play({ sourceId, vodId, onNavigate, onGoBack }: PlayProps) {
             url.searchParams.append('episode_index', String(selectedEpisodeIndex));
             url.searchParams.append('type_name', video.type_name || '');
             url.searchParams.append('year', video.vod_year || '');
-            url.searchParams.append('stream', 'true');
+
 
             const response = await fetch(url.toString(), {
                 headers: {
@@ -377,6 +377,12 @@ export function Play({ sourceId, vodId, onNavigate, onGoBack }: PlayProps) {
                 }
             });
 
+            const contentType = response.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                const payload = await response.json();
+                setAlternativeSources(Array.isArray(payload.data) ? payload.data : []);
+                return;
+            }
             if (!response.body) throw new Error('ReadableStream not supported');
 
             const reader = response.body.getReader();
