@@ -16,7 +16,7 @@ binding = "ASSETS"
 [[d1_databases]]
 binding = "DB"
 database_name = "videox"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "8fd98930-58f7-42a8-980e-75a788b307f5"
 migrations_dir = "worker/migrations"
 
 [vars]
