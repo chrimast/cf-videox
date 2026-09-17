@@ -1,5 +1,5 @@
 {
-  "name": "videox-cloudflare",
+  "name": "cf-videox",
   "private": true,
   "scripts": {
     "build": "npm --prefix frontend ci && npm --prefix frontend run build",

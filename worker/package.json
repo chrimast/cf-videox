@@ -1,5 +1,5 @@
 {
-  "name": "videox-cloudflare-worker",
+  "name": "cf-videox-worker",
   "private": true,
   "type": "module",
   "scripts": {

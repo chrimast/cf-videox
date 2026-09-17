@@ -58,9 +58,19 @@ docker-compose.yml        Docker Compose 部署文件
 ### 3. 创建 Worker
 
 1. 进入 **Workers & Pages → Create application → Create Worker**；
-2. 创建一个 Worker，名称建议使用 `videox`；
-3. 创建后进入该 Worker 的 **Settings → Bindings**；
-4. 添加 **D1 database binding**：变量名填写 `DB`，数据库选择前面创建的 `videox`。
+2. 创建一个 Worker，名称必须使用 `cf-videox`；
+3. 不要使用 Cloudflare 默认生成的 Service Worker 模板代码去绑定 D1。当前仓库 Worker 必须是 ES Module，入口为 `export default { fetch }`；
+4. 创建后进入该 Worker 的 **Settings → Bindings**；
+5. 添加 **D1 database binding**：变量名填写 `DB`，数据库选择前面创建的 `videox`。
+
+如果绑定 D1 时出现类似错误：
+
+```text
+绑定类型为 'd1' 的 'db' 需要一个以 ES 模块格式编写的 worker。
+A binding of type 'd1' named 'DB' requires a worker written in ES module format.
+```
+
+说明当前线上 Worker 仍是 Cloudflare 默认的 Service Worker 模板，不是仓库里的 ES Module 代码。正确做法是通过 GitHub 仓库重新部署 `chrimast/cf-videox`，不要只在控制台给默认模板加 D1 绑定。
 
 ### 4. 配置 Static Assets
 
