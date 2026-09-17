@@ -78,11 +78,14 @@ A binding of type 'd1' named 'DB' requires a worker written in ES module format.
 
 在部署设置中填写：
 
-- **Root directory**：仓库根目录；
+- **Root directory**：仓库根目录，不要填 `worker`；
+- **Wrangler configuration file**：仓库根目录的 `wrangler.toml`；
 - **Build command**：`npm --prefix frontend install && npm --prefix frontend run build`；
 - **Build output directory**：`frontend/dist`；
 - **Deploy command**：由 Cloudflare 的 Worker 部署流程执行；
 - **D1 binding**：变量名必须为 `DB`。
+
+绑定 D1 前，必须先完成一次 Git 仓库部署，让线上 Worker 变成仓库里的 ES Module 代码。如果还没有部署过仓库代码，控制台里的 `cf-videox` 仍是默认 Service Worker 模板，这时添加 D1 一定会报 ES 模块格式错误。
 
 如果当前 Cloudflare 账户界面没有提供 Worker 的 GitHub 构建入口，请先在 **Workers & Pages → Create application → Import a repository** 中创建连接，再在项目的 **Settings → Builds & deployments** 中填写上述构建配置。
 
