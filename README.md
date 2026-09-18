@@ -52,55 +52,51 @@ docker-compose.yml        Docker Compose 部署文件
 
 1. 在左侧进入 **Storage & databases → D1**；
 2. 点击 **Create database**；
-3. 数据库名称填写 `videox`；
-4. 创建完成后记下数据库名称，后续绑定 Worker 时选择该数据库。
+3. 数据库名称必须填写 `videox`，不要改成别的名字；
+4. **不要删除再重建这个数据库。** D1 的 `database_id` 跟着数据库走，不跟着 Worker 走。重建 Worker 不会改 ID；重建 `videox` 才会改 ID。
 
-### 3. 创建 Worker
+### 3. 用 Git 仓库部署 Worker，不要用默认模板
 
-1. 进入 **Workers & Pages → Create application → Create Worker**；
-2. 创建一个 Worker，名称必须使用 `cf-videox`；
-3. 不要使用 Cloudflare 默认生成的 Service Worker 模板代码去绑定 D1。当前仓库 Worker 必须是 ES Module，入口为 `export default { fetch }`；
-4. 创建后进入该 Worker 的 **Settings → Bindings**；
-5. 添加 **D1 database binding**：变量名填写 `DB`，数据库选择前面创建的 `videox`。
+不要走 **Create Worker** 默认模板，再手动绑 D1。默认模板是 Service Worker，绑 D1 会报 ES 模块格式错误。
 
-如果绑定 D1 时出现类似错误：
+正确做法：
 
-```text
-绑定类型为 'd1' 的 'db' 需要一个以 ES 模块格式编写的 worker。
-A binding of type 'd1' named 'DB' requires a worker written in ES module format.
-```
-
-说明当前线上 Worker 仍是 Cloudflare 默认的 Service Worker 模板，不是仓库里的 ES Module 代码。正确做法是通过 GitHub 仓库重新部署 `chrimast/cf-videox`，不要只在控制台给默认模板加 D1 绑定。
-
-### 4. 配置 Static Assets
-
-当前仓库的 Worker 代码和前端构建产物需要一起部署。Cloudflare 控制台的在线编辑器不适合直接完成本项目的多文件构建，因此推荐在 **Workers & Pages → Create application → Import a repository** 中连接 GitHub 仓库 `chrimast/cf-videox`，再选择 Worker 部署方式。
+1. **Workers & Pages → Create application → Import a repository**
+2. 选择 GitHub 仓库 `chrimast/cf-videox`
+3. Worker 名称使用 `cf-videox`
 
 在部署设置中填写：
 
 - **Root directory**：仓库根目录，不要填 `worker`；
 - **Wrangler configuration file**：仓库根目录的 `wrangler.toml`；
-- **Build command**：`npm --prefix frontend install && npm --prefix frontend run build`；
+- **Build command**：
+  ```text
+  npm --prefix frontend install && npm --prefix frontend run build && node scripts/resolve-d1-id.mjs
+  ```
 - **Build output directory**：`frontend/dist`；
-- **Deploy command**：由 Cloudflare 的 Worker 部署流程执行；
-- **D1 binding**：变量名必须为 `DB`。
+- **D1 binding**：变量名必须为 `DB`，数据库名必须为 `videox`。
 
-绑定 D1 前，必须先完成一次 Git 仓库部署，让线上 Worker 变成仓库里的 ES Module 代码。如果还没有部署过仓库代码，控制台里的 `cf-videox` 仍是默认 Service Worker 模板，这时添加 D1 一定会报 ES 模块格式错误。
+`scripts/resolve-d1-id.mjs` 会在部署时按数据库名 `videox` 查询当前账户里的真实 `database_id`，再写入本次构建用的 `wrangler.toml`。因此：
 
-如果当前 Cloudflare 账户界面没有提供 Worker 的 GitHub 构建入口，请先在 **Workers & Pages → Create application → Import a repository** 中创建连接，再在项目的 **Settings → Builds & deployments** 中填写上述构建配置。
+- 只重建 Worker：继续用原来的 `videox`，ID 不变，不会报 `10181`；
+- 不得已重建了 D1：只要新库仍叫 `videox`，下次部署会自动拿到新 ID，不必改仓库里的 UUID；
+- 如果库名不是 `videox`，在 Cloudflare 构建环境里设置 `D1_DATABASE_NAME`；
+- 也可以设置 `D1_DATABASE_ID` 强制指定某个已存在的库。
 
-### 5. 执行 D1 迁移
+不要把占位符 `00000000-0000-0000-0000-000000000000` 直接拿去部署。
 
-在 Worker 的 **D1 数据库 → Console** 中打开数据库控制台，将仓库 `worker/migrations/0001_initial.sql` 的内容复制进去并执行。执行成功后，数据库表会完成初始化。
+### 4. 执行 D1 迁移
 
-### 6. 发布和验证
+在 D1 Console 中打开 `videox`，执行仓库 `worker/migrations/0001_init.sql`。如果表已经存在，不要重复执行，也不要为了“重新绑定”而删除数据库。
+
+### 5. 发布和验证
 
 1. 在 Cloudflare 项目中点击 **Save and deploy**；
 2. 打开 Cloudflare 分配的 `workers.dev` 地址；
 3. 访问 `/api/health`，返回 `status: healthy` 即表示 Worker 已启动；
 4. 进入后台添加 CMS 视频源，并在后台配置 TMDB API Key（如需使用 TMDB 正在热映）。
 
-### 7. 后续更新
+### 6. 后续更新
 
 推送到 GitHub `main` 分支后，在 Cloudflare 项目的 **Deployments** 页面点击 **Redeploy**，或启用自动部署。数据库迁移仍需在 D1 Console 中按新增 migration 文件手动执行。
 
@@ -261,9 +257,10 @@ GET    /api/proxy/hls?url=...
 
 ```bash
 npm --prefix worker test
+node --test scripts/resolve-d1-id.test.mjs
 npm --prefix frontend run build
 node --check docker/server.js
-npx wrangler deploy --config worker/wrangler.toml --dry-run
+npx wrangler deploy --config wrangler.toml --dry-run
 ```
 
 Docker 镜像验证：

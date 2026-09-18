@@ -4,8 +4,9 @@
   "type": "module",
   "scripts": {
     "build": "npm --prefix frontend ci && npm --prefix frontend run build",
-    "deploy": "npm run build && npx wrangler deploy --config wrangler.toml",
-    "test:worker": "npm --prefix worker test",
+    "resolve:d1": "node scripts/resolve-d1-id.mjs",
+    "deploy": "npm run resolve:d1 && npm run build && npx wrangler deploy --config wrangler.toml",
+    "test:worker": "npm --prefix worker test && node --test scripts/resolve-d1-id.test.mjs",
     "build:docker": "docker compose build",
     "up": "docker compose up -d"
   }
