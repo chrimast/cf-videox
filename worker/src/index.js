@@ -505,6 +505,56 @@ async function sourceBatch(request, env, action) {
   return json({ success: false, error: 'Unsupported batch action' }, 400);
 }
 
+async function tmdbNowPlaying(request, env) {
+  const row = await first(env.DB, "SELECT value FROM settings WHERE key='tmdb_api_key'");
+  const key = String(row?.value || '').trim();
+  if (!key) return json({ success: false, error: 'TMDB API key is not configured' }, 503);
+  const response = await (env.fetch || fetch)(`https://api.themoviedb.org/3/movie/now_playing?api_key=${encodeURIComponent(key)}&language=zh-CN&region=CN&page=1`, {
+    headers: { accept: 'application/json' },
+  });
+  if (!response.ok) return json({ success: false, error: `TMDB HTTP ${response.status}` }, 502);
+  const data = await response.json();
+  const list = (data.results || []).filter(item => item.poster_path).map(item => ({
+    source_id: 0,
+    vod_id: `tmdb-${item.id}`,
+    vod_name: item.title || item.original_title || '',
+    vod_pic: `https://image.tmdb.org/t/p/w500${item.poster_path}`,
+    vod_year: String(item.release_date || '').slice(0, 4),
+    vod_remarks: item.release_date || '',
+    vod_score: String(item.vote_average || ''),
+    vod_area: 'TMDB',
+    tmdb_id: item.id,
+    tmdb_overview: item.overview || '',
+  }));
+  return json({ success: true, data: list });
+}
+
+async function proxyImage(request, env) {
+  const url = new URL(request.url).searchParams.get('url');
+  if (!url) return json({ success: false, error: 'Missing url' }, 400);
+  let target;
+  try { target = new URL(url); } catch { return json({ success: false, error: 'Invalid url' }, 400); }
+  if (!['http:', 'https:'].includes(target.protocol)) return json({ success: false, error: 'Unsupported protocol' }, 400);
+  const upstream = await (env.fetch || fetch)(target, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0',
+      Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+      Referer: `${target.origin}/`,
+    },
+  });
+  const contentType = upstream.headers.get('content-type') || '';
+  const bytes = new Uint8Array(await upstream.arrayBuffer());
+  const looksHtml = bytes.length >= 5 && String.fromCharCode(...bytes.slice(0, 5)).toLowerCase().includes('<html');
+  if (!upstream.ok || looksHtml || contentType.includes('text/html')) {
+    return json({ success: false, error: 'Image blocked by upstream' }, 502);
+  }
+  const headers = new Headers();
+  headers.set('content-type', contentType.startsWith('image/') ? contentType : 'image/jpeg');
+  headers.set('access-control-allow-origin', '*');
+  headers.set('cache-control', 'public, max-age=86400');
+  return new Response(bytes, { status: 200, headers });
+}
+
 async function proxy(request, env) {
   const url = new URL(request.url).searchParams.get('url');
   if (!url) return json({ success: false, error: 'Missing url' }, 400);
@@ -572,7 +622,9 @@ export default {
       if (videoMatch && request.method === 'GET') return cmsDetail(request, env, videoMatch[1]);
       const sourceMatch = path.match(/^\/api\/sources\/([^/]+)$/);
       if (sourceMatch) return sourceById(request, env, sourceMatch[1]);
+      if (path === '/api/tmdb/now-playing' && request.method === 'GET') return tmdbNowPlaying(request, env);
       if (path === '/api/proxy' || path === '/api/proxy/hls' || path === '/api/proxy/video') return proxy(request, env);
+      if (path === '/api/proxy/image' && request.method === 'GET') return proxyImage(request, env);
       if (path.startsWith('/api/netdisk') || path.startsWith('/api/transcode') || path.startsWith('/api/media-servers')) {
         return json({ success: false, error: 'This deployment does not support local, WebDAV, AList, transcoding, or media-server sources.' }, 404);
       }

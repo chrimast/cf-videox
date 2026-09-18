@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Video } from '../types';
+import { posterSrc } from '../utils/poster';
 
 interface BannerProps {
     videos: Video[];
@@ -45,10 +46,11 @@ export function Banner({ videos, onClick }: BannerProps) {
             {/* 背景图 */}
             <div className="absolute inset-0">
                 <img
-                    src={currentVideo.vod_pic}
+                    src={posterSrc(currentVideo.vod_pic)}
                     alt={currentVideo.vod_name}
                     className="w-full h-full object-cover"
                     loading="eager"
+                    referrerPolicy="no-referrer"
                 />
                 {/* 渐变遮罩 */}
                 <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent"></div>

@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { Video } from '../types';
+import { posterSrc } from '../utils/poster';
 
 interface VideoCardProps {
     video: Video;
@@ -22,10 +23,11 @@ export const VideoCard = memo(({ video, onClick, showSource = false, sourceName 
             {/* 封面 - 固定比例防止抖动 */}
             <div className="relative aspect-[2/3] overflow-hidden bg-gray-800">
                 <img
-                    src={video.vod_pic}
+                    src={posterSrc(video.vod_pic)}
                     alt=""
                     className="video-cover w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
                     loading="lazy"
+                    referrerPolicy="no-referrer"
                     onError={(e) => {
                         (e.target as HTMLImageElement).src =
                             'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 150"%3E%3Crect fill="%2323272f" width="100" height="150"/%3E%3Ctext x="50" y="75" text-anchor="middle" dy=".3em" fill="%2364748b" font-size="12"%3E暂无图片%3C/text%3E%3C/svg%3E';

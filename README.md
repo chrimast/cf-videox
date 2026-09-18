@@ -228,6 +228,7 @@ GET    /api/live/status
 POST   /api/live/refresh/:id
 POST   /api/live/refresh-all
 GET    /api/home
+GET    /api/tmdb/now-playing
 POST   /api/home/refresh
 POST   /api/home/refresh-section
 GET    /api/categories
@@ -243,6 +244,7 @@ POST   /api/history
 DELETE /api/history
 DELETE /api/history/:id
 GET    /api/proxy/hls?url=...
+GET    /api/proxy/image?url=...
 ```
 
 接口在 Docker 和 Cloudflare Worker 中保持相同的产品边界；Worker 使用 D1，Docker 使用 SQLite。
