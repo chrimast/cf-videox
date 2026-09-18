@@ -26,6 +26,8 @@ const normalizeSource = (row) => ({
   hidden: Boolean(row.hidden),
 });
 
+const cmsFetch = (source, env) => source.fetch || env.fetch || fetch;
+
 const normalizeToggle = (row) => ({ ...row, enabled: Boolean(row.enabled) });
 
 async function managedSources(request, env, table) {
@@ -100,11 +102,11 @@ async function tvPlaylist(request, env, id) {
   return json({ success: true, data: channels });
 }
 
-async function cmsRequest(source, params = {}) {
+async function cmsRequest(source, params = {}, env = {}) {
   const target = new URL(source.url);
   target.searchParams.set('ac', params.ac || 'list');
   for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== null) target.searchParams.set(key, String(value));
-  const response = await (source.fetch || fetch)(target, { headers: { 'User-Agent': 'VideoX/Cloudflare', Accept: 'application/json' } });
+  const response = await cmsFetch(source, env)(target, { headers: { 'User-Agent': 'VideoX/Cloudflare', Accept: 'application/json' } });
   if (!response.ok) throw new Error(`CMS HTTP ${response.status}`);
   return response.json();
 }
@@ -128,8 +130,10 @@ const parseEpisodes = (playUrl, playFrom) => {
   }).filter(item => item.list.length > 0);
 };
 
-async function cmsSource(env, sourceId) {
-  const source = await first(env.DB, 'SELECT * FROM video_sources WHERE id = ? AND enabled = 1', sourceId);
+async function cmsSource(env, sourceId, requireEnabled = true) {
+  const source = await first(env.DB, requireEnabled
+    ? 'SELECT * FROM video_sources WHERE id = ? AND enabled = 1'
+    : 'SELECT * FROM video_sources WHERE id = ?', sourceId);
   if (!source) return null;
   if (env.fetch) source.fetch = env.fetch;
   return source;
@@ -139,7 +143,7 @@ async function cmsCategories(request, env) {
   const sourceId = new URL(request.url).searchParams.get('source_id');
   const source = await cmsSource(env, sourceId);
   if (!source) return json({ success: false, error: 'Source not found' }, 404);
-  const data = await cmsRequest(source, { ac: 'list' });
+  const data = await cmsRequest(source, { ac: 'list' }, env);
   const categories = (data.class || []).map(item => ({ id: item.type_id, source_id: Number(sourceId), type_id: String(item.type_id), name: item.type_name || '', parent_id: item.type_pid || 0, sort_order: 0, has_content: 1 }));
   return json({ success: true, data: categories });
 }
@@ -152,14 +156,14 @@ async function cmsVideos(request, env) {
   if (sourceId) {
     const source = await cmsSource(env, sourceId);
     if (!source) return json({ success: false, error: 'Source not found' }, 404);
-    const data = await cmsRequest(source, { ...query, t: url.searchParams.get('category_id') || undefined });
+    const data = await cmsRequest(source, { ...query, t: url.searchParams.get('category_id') || undefined }, env);
     const list = (data.list || []).map(item => ({ ...normalizeVideo(item), source_id: Number(sourceId) }));
     return json({ success: true, data: list, page: data.page || 1, pagecount: data.pagecount || 1, total: data.total || list.length });
   }
   const sourceRows = await rows(env.DB, 'SELECT * FROM video_sources WHERE enabled=1 ORDER BY sort_order,id');
   const settled = await Promise.allSettled(sourceRows.map(async source => {
     if (env.fetch) source.fetch = env.fetch;
-    const data = await cmsRequest(source, query);
+    const data = await cmsRequest(source, query, env);
     return (data.list || []).map(item => ({ ...normalizeVideo(item), source_id: Number(source.id) }));
   }));
   const list = settled.flatMap(result => result.status === 'fulfilled' ? result.value : []);
@@ -170,7 +174,7 @@ async function cmsDetail(request, env, pathVodId = null) {
   const url = new URL(request.url);
   const source = await cmsSource(env, url.searchParams.get('source_id'));
   if (!source) return json({ success: false, error: 'Source not found' }, 404);
-  const data = await cmsRequest(source, { ac: 'detail', ids: pathVodId || url.searchParams.get('vod_id') });
+  const data = await cmsRequest(source, { ac: 'detail', ids: pathVodId || url.searchParams.get('vod_id') }, env);
   const item = data.list?.[0];
   if (!item) return json({ success: false, error: 'Video not found' }, 404);
   return json({ success: true, data: { ...normalizeVideo(item), vod_content: String(item.vod_content || item.vod_blurb || '').replace(/<[^>]*>/g, '').trim(), vod_director: item.vod_director || '', vod_play_from: item.vod_play_from || '', vod_play_url: item.vod_play_url || '', episodes: parseEpisodes(item.vod_play_url, item.vod_play_from) } });
@@ -239,6 +243,106 @@ async function sourceById(request, env, id) {
   }
   return json({ success: false, error: 'Method not allowed' }, 405);
 }
+
+async function probeSource(source, env) {
+  const started = Date.now();
+  try {
+    const data = await cmsRequest(source, { ac: 'list', pg: 1 }, env);
+    const ok = Boolean(data && (data.class || data.list || data.code === 1 || data.code === '1'));
+    return { success: ok, responseTime: Date.now() - started, ...(ok ? {} : { error: 'Invalid CMS response' }) };
+  } catch (error) {
+    return { success: false, responseTime: Date.now() - started, error: error.message };
+  }
+}
+
+async function saveProbeResult(env, id, result) {
+  try {
+    await env.DB.prepare('UPDATE video_sources SET response_time=?, last_test_at=CURRENT_TIMESTAMP WHERE id=?')
+      .bind(result.success ? result.responseTime : null, Number(id)).run();
+  } catch {
+    if (result.success) {
+      await env.DB.prepare('UPDATE video_sources SET response_time=? WHERE id=?')
+        .bind(result.responseTime, Number(id)).run();
+    }
+  }
+}
+
+async function testSource(request, env, id) {
+  const source = await cmsSource(env, id, false);
+  if (!source) return json({ success: false, error: 'Source not found' }, 404);
+  const result = await probeSource(source, env);
+  await saveProbeResult(env, id, result);
+  if (!result.success) return json({ success: false, error: result.error, responseTime: result.responseTime }, 502);
+  return json({ success: true, responseTime: result.responseTime });
+}
+
+async function syncSource(request, env, id) {
+  const source = await cmsSource(env, id, false);
+  if (!source) return json({ success: false, error: 'Source not found' }, 404);
+  const stream = new URL(request.url).searchParams.get('stream');
+  const data = await cmsRequest(source, { ac: 'list' }, env);
+  const categories = data.class || [];
+  try {
+    await env.DB.prepare('DELETE FROM categories WHERE source_id=?').bind(Number(id)).run();
+    if (categories.length) {
+      await env.DB.batch(categories.map((item, index) => env.DB.prepare(
+        'INSERT INTO categories(source_id,type_id,name,parent_id,sort_order) VALUES(?,?,?,?,?)'
+      ).bind(Number(id), String(item.type_id), item.type_name || '', String(item.type_pid || 0), index)));
+    }
+  } catch {}
+  if (stream === 'true' || stream === '1') {
+    const events = [
+      `data: ${JSON.stringify({ type: 'progress', message: '正在获取全部分类...', current: 0, total: 100 })}\n\n`,
+      `data: ${JSON.stringify({ type: 'progress', message: '分类同步完成', current: 100, total: 100 })}\n\n`,
+      'data: [DONE]\n\n',
+    ].join('');
+    return new Response(events, { headers: { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache' } });
+  }
+  return json({ success: true, data: categories });
+}
+
+const classifyHomeType = (item) => {
+  const name = String(item.type_name || item.vod_class || '');
+  if (/(综艺|真人秀|脱口秀|音乐节目)/.test(name)) return 'variety';
+  if (/(动漫电影|动画电影|电影|片$)/.test(name)) return 'movie';
+  if (/(动漫|动画|番剧|少儿|漫剧)/.test(name)) return 'anime';
+  if (/(连续剧|电视剧|短剧|国产剧|香港剧|台湾剧|韩国剧|日本剧|欧美剧|海外剧|泰国剧|tv)/.test(name)) return 'tv';
+  return 'movie';
+};
+
+async function loadHomeFromSource(source, env) {
+  const result = await cmsRequest(source, { ac: 'detail', pg: 1, order: 'desc', by: 'time' }, env);
+  const videos = (result.list || []).map(item => ({ ...normalizeVideo(item), source_id: Number(source.id) }));
+  const data = { hot: [], movie: { latest: [] }, tv: { latest: [] }, anime: { latest: [] }, variety: { latest: [] } };
+  for (const video of videos) data[classifyHomeType(video)].latest.push(video);
+  data.hot = data.movie.latest.slice(0, 20);
+  for (const section of ['movie', 'tv', 'anime', 'variety']) data[section].latest = data[section].latest.slice(0, 20);
+  return data;
+}
+
+const mergeHomeData = (items) => {
+  const result = { hot: [], movie: {}, tv: {}, anime: {}, variety: {} };
+  for (const item of items) {
+    result.hot.push(...(item.hot || []));
+    for (const section of ['movie', 'tv', 'anime', 'variety']) {
+      for (const [tab, list] of Object.entries(item[section] || {})) {
+        result[section][tab] = [...(result[section][tab] || []), ...(list || [])];
+      }
+    }
+  }
+  const seen = new Set();
+  const dedupe = (list) => list.filter((video) => {
+    const key = `${video.source_id}:${video.vod_id}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  result.hot = dedupe(result.hot).slice(0, 20);
+  for (const section of ['movie', 'tv', 'anime', 'variety']) {
+    for (const tab of Object.keys(result[section])) result[section][tab] = dedupe(result[section][tab]).slice(0, 20);
+  }
+  return result;
+};
 
 async function settings(request, env) {
   const keyMatch = new URL(request.url).pathname.match(/^\/api\/settings\/([^/]+)$/);
@@ -354,7 +458,16 @@ async function homeData(request, env) {
     }
     if (row.updated_at && (!lastUpdated || row.updated_at < lastUpdated)) lastUpdated = row.updated_at;
   }
-  return json({ success: true, data, lastUpdated });
+  const hasCache = data.hot.length || Object.keys(data.movie).length || Object.keys(data.tv).length || Object.keys(data.anime).length || Object.keys(data.variety).length;
+  if (hasCache) return json({ success: true, data, lastUpdated });
+  const sourceRows = await rows(env.DB, 'SELECT * FROM video_sources WHERE enabled=1 AND hidden=0 ORDER BY sort_order,id');
+  const settled = await Promise.allSettled(sourceRows.map(source => {
+    if (env.fetch) source.fetch = env.fetch;
+    return loadHomeFromSource(source, env);
+  }));
+  const loaded = settled.filter(item => item.status === 'fulfilled' && item.value).map(item => item.value);
+  const live = loaded.length ? mergeHomeData(loaded) : data;
+  return json({ success: true, data: live, lastUpdated: live.hot.length ? new Date().toISOString() : lastUpdated });
 }
 
 async function refreshHomeSection(request, env) {
@@ -382,9 +495,10 @@ async function sourceBatch(request, env, action) {
     for (const id of input.ids) {
       const source = await first(env.DB, 'SELECT * FROM video_sources WHERE id=?', Number(id));
       if (!source) continue;
-      const started = Date.now();
-      try { const response = await fetch(new URL(`${source.url}${source.url.includes('?') ? '&' : '?'}ac=list&pg=1`)); results.push({ id: Number(id), success: response.ok, responseTime: Date.now() - started, ...(response.ok ? {} : { error: `HTTP ${response.status}` }) }); }
-      catch (error) { results.push({ id: Number(id), success: false, responseTime: Date.now() - started, error: error.message }); }
+      if (env.fetch) source.fetch = env.fetch;
+      const result = await probeSource(source, env);
+      await saveProbeResult(env, id, result);
+      results.push({ id: Number(id), ...result });
     }
     return json({ success: true, data: results });
   }
@@ -436,8 +550,12 @@ export default {
       if (path === '/api/sources/batch-delete' && request.method === 'POST') return sourceBatch(request, env, 'delete');
       if (path === '/api/sources/batch-update' && request.method === 'POST') return sourceBatch(request, env, 'update');
       if (path === '/api/sources/batch-test' && request.method === 'POST') return sourceBatch(request, env, 'test');
-      const sourceSyncMatch = path.match(/^\/api\/sources\/([^/]+)\/background-sync$/);
-      if (sourceSyncMatch && request.method === 'POST') return json({ success: true, message: 'Background sync queued' });
+      const sourceTestMatch = path.match(/^\/api\/sources\/([^/]+)\/test$/);
+      if (sourceTestMatch && request.method === 'POST') return testSource(request, env, sourceTestMatch[1]);
+      const sourceSyncMatch = path.match(/^\/api\/sources\/([^/]+)\/sync$/);
+      if (sourceSyncMatch && request.method === 'POST') return syncSource(request, env, sourceSyncMatch[1]);
+      const sourceBgSyncMatch = path.match(/^\/api\/sources\/([^/]+)\/background-sync$/);
+      if (sourceBgSyncMatch && request.method === 'POST') return json({ success: true, message: 'Background sync queued' });
       if (path === '/api/sources/export' && request.method === 'GET') return sourceExtras(request, env, 'export');
       if (path === '/api/sources/import' && request.method === 'POST') return sourceExtras(request, env, 'import');
       if (path === '/api/tv/sources/batch-delete' && request.method === 'POST') return managedBatch(request, env, 'tv_sources', 'delete');

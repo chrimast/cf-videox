@@ -212,6 +212,8 @@ POST   /api/sources/batch-delete
 POST   /api/sources/batch-test
 GET    /api/sources/export
 POST   /api/sources/import
+POST   /api/sources/:id/test
+POST   /api/sources/:id/sync
 POST   /api/sources/:id/background-sync
 GET    /api/tv/sources
 POST   /api/tv/sources
